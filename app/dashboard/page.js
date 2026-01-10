@@ -42,6 +42,35 @@ export default function Dashboard() {
     loadDashboard()
   }, [])
 
+  // 🔴 TEMPORARY TEST FUNCTION (DO NOT MOVE TO SQL)
+  async function testCreateProfile() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) {
+        alert('No user logged in')
+        return
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .insert({
+          user_id: user.id,
+          name: 'Test Profile',
+          email: user.email
+        })
+
+      if (error) {
+        alert('ERROR: ' + error.message)
+      } else {
+        alert('✅ Profile inserted successfully!')
+      }
+    } catch (err) {
+      alert('Unexpected error')
+      console.error(err)
+    }
+  }
+
   if (loading) {
     return <p style={{ padding: 20 }}>Loading dashboard...</p>
   }
@@ -49,6 +78,20 @@ export default function Dashboard() {
   return (
     <main style={{ padding: 30 }}>
       <h2>Welcome {user.email}</h2>
+
+      {/* 🔴 TEMP TEST BUTTON */}
+      <button
+        onClick={testCreateProfile}
+        style={{
+          marginBottom: 20,
+          padding: '10px 15px',
+          background: 'black',
+          color: 'white',
+          borderRadius: 6
+        }}
+      >
+        🔧 Test Create Profile
+      </button>
 
       {submission ? (
         <>
@@ -71,4 +114,3 @@ export default function Dashboard() {
     </main>
   )
 }
-
