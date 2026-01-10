@@ -8,6 +8,15 @@ export default function PublicProfile({ params }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // Function to determine candidate level based on score
+  function getLevel(score) {
+    if (score >= 90) return 'Excellent'
+    if (score >= 80) return 'Strong'
+    if (score >= 50) return 'Average'
+    if (score >= 20) return 'Below Average'
+    return 'Very Bad'
+  }
+
   useEffect(() => {
     async function loadProfile() {
       const { data, error } = await supabase
@@ -34,17 +43,13 @@ export default function PublicProfile({ params }) {
     return <p style={{ padding: 30 }}>Profile not found</p>
   }
 
-  let level = 'Average'
-  if (profile.score >= 80) level = 'Strong'
-  if (profile.score >= 90) level = 'Excellent'
-
   return (
     <main style={{ padding: 40, maxWidth: 600, margin: 'auto' }}>
       <h2>Candidate Profile</h2>
 
       <p><strong>Email:</strong> {profile.email}</p>
       <p><strong>Score:</strong> {profile.score}</p>
-      <p><strong>Level:</strong> {level}</p>
+      <p><strong>Level:</strong> {getLevel(profile.score)}</p>
 
       <hr />
 
