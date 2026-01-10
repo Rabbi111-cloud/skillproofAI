@@ -1,47 +1,91 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../../../lib/supabaseClient'
 import { questions } from '../questions'
-import { useRouter } from 'next/navigation'
 
-export default function Result() {
-  const [score, setScore] = useState(0)
+export default function AssessmentResult() {
   const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [score, setScore] = useState(0)
 
   useEffect(() => {
-    const answers = JSON.parse(localStorage.getItem('answers') || '{}')
-    let total = 0
+    async function calculateAndSave() {
+      // 1️⃣ Get stored answers
+      const storedAnswers = JSON.parse(
+        localStorage.getItem('answers') || '{}'
+      )
 
-    questions.forEach(q => {
-      const userAnswer = (answers[q.id] || '').toLowerCase()
-      const correct = q.answer.toLowerCase()
+      // 2️⃣ Calculate score
+      let finalScore = 0
 
-      if (userAnswer.includes(correct.split(' ')[0])) total += 5
-      if (userAnswer.includes(correct)) total += 5
-    })
-
-    async function save() {
-      const { data } = await supabase.auth.getUser()
-      await supabase.from('submissions').insert({
-        user_id: data.user.id,
-        score: total,
-        answers
+      questions.forEach(q => {
+        if (storedAnswers[q.id]?.toLowerCase() === q.correct.toLowerCase()) {
+          finalScore += 10 // adjust if you want
+        }
       })
+
+      setScore(finalScore)
+
+      // 3️⃣ Get logged-in user
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        alert('Not authenticated')
+        router.push('/')
+        return
+      }
+
+      // 4️⃣ Save submission
+      const { error: submissionError } = await supabase
+        .from('submissions')
+        .insert({
+          user_id: user.id,
+          score: finalScore,
+        })
+
+      if (submissionError) {
+        console.error(submissionError)
+      }
+
+      // 5️⃣ UPSERT profile (CRITICAL)
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          user_id: user.id,
+          email: user.email,
+          score: finalScore,
+          updated_at: new Date().toISOString(),
+        })
+
+      if (profileError) {
+        console.error(profileError)
+      }
+
+      // 6️⃣ Clear answers & redirect
+      localStorage.removeItem('answers')
+      setLoading(false)
+
+      setTimeout(() => {
+        router.push('/dashboard')
+      }, 1500)
     }
 
-    save()
-    setScore(total)
-    localStorage.removeItem('answers')
+    calculateAndSave()
   }, [])
 
+  if (loading) {
+    return <p style={{ padding: 30 }}>Calculating your score...</p>
+  }
+
   return (
-    <main>
-      <h2>Assessment Complete</h2>
-      <p>Your Total Score: {score}</p>
-      <button onClick={() => router.push('/dashboard')}>
-        Go to Dashboard
-      </button>
+    <main style={{ padding: 30 }}>
+      <h2>Assessment Completed 🎉</h2>
+      <p><strong>Your Score:</strong> {score}</p>
+      <p>Redirecting to dashboard...</p>
     </main>
   )
 }
