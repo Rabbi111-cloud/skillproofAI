@@ -56,8 +56,9 @@ export default function Dashboard() {
           <p><strong>Your Score:</strong> {submission.score}</p>
 
           <div style={{ marginTop: 15 }}>
+            {/* ✅ VIEW PROFILE BUTTON FIXED */}
             <button
-              onClick={() => router.push('/profile')}
+              onClick={() => router.push(`/p/${user.id}`)}
               style={{ marginRight: 10 }}
             >
               View Profile
