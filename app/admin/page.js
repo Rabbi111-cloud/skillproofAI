@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 
+// 🔐 ADMIN EMAIL (CHANGE THIS)
+const ADMIN_EMAIL = 'YOUR_EMAIL_HERE'
+
 export default function AdminDashboard() {
   const [profiles, setProfiles] = useState([])
   const [loading, setLoading] = useState(true)
@@ -11,7 +14,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     async function loadProfiles() {
-      // Ensure user is logged in
+      // 1️⃣ Ensure user is logged in
       const { data: authData } = await supabase.auth.getUser()
 
       if (!authData?.user) {
@@ -19,7 +22,13 @@ export default function AdminDashboard() {
         return
       }
 
-      // Fetch all candidate profiles
+      // 2️⃣ BLOCK NON-ADMIN USERS
+      if (authData.user.email !== ADMIN_EMAIL) {
+        router.push('/dashboard')
+        return
+      }
+
+      // 3️⃣ Fetch all candidate profiles
       const { data, error } = await supabase
         .from('profiles')
         .select('user_id, email, score, updated_at')
@@ -86,3 +95,4 @@ export default function AdminDashboard() {
     </main>
   )
 }
+
