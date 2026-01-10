@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 
 // 🔐 ADMIN EMAIL (CHANGE THIS)
-const ADMIN_EMAIL = 'YOUR_EMAIL_HERE'
+const ADMIN_EMAIL = 'diggingdeep0007@gmail.com'
 
 export default function AdminDashboard() {
   const [profiles, setProfiles] = useState([])
