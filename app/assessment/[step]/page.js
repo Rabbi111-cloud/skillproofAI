@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { questions } from '../../questions'
+import { questions } from '../../../questions'
 
 export default function StepPage() {
   const router = useRouter()
