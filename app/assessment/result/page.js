@@ -28,8 +28,7 @@ export default function ResultPage() {
         }
 
         // 2️⃣ Get answers from localStorage
-        const rawAnswers = localStorage.getItem('answers')
-        const answers = rawAnswers ? JSON.parse(rawAnswers) : {}
+        const answers = JSON.parse(localStorage.getItem('answers')) || {}
 
         let totalCorrect = 0
         let skillStats = {}
@@ -56,12 +55,9 @@ export default function ResultPage() {
         )
 
         const skills = {}
-
         Object.keys(skillStats).forEach(skill => {
           skills[skill] = Math.round(
-            (skillStats[skill].correct /
-              skillStats[skill].total) *
-              100
+            (skillStats[skill].correct / skillStats[skill].total) * 100
           )
         })
 
@@ -72,14 +68,11 @@ export default function ResultPage() {
         const { error: submissionError } = await supabase
           .from('submissions')
           .insert({
-            auth_user_id: user.id,
-            score: totalScore,
+            user_id: user.id, // ✅ Correct column name
+            score: totalScore
           })
 
-        if (submissionError) {
-          console.error('SUBMISSION ERROR:', submissionError)
-          throw submissionError
-        }
+        if (submissionError) throw submissionError
 
         // 5️⃣ Update profile
         const { error: profileError } = await supabase
@@ -87,14 +80,11 @@ export default function ResultPage() {
           .update({
             score: totalScore,
             skills,
-            email: user.email,
+            email: user.email
           })
-          .eq('auth_user_id', user.id)
+          .eq('user_id', user.id) // ✅ Correct column name
 
-        if (profileError) {
-          console.error('PROFILE ERROR:', profileError)
-          throw profileError
-        }
+        if (profileError) throw profileError
 
         // 6️⃣ Cleanup & redirect
         localStorage.removeItem('answers')
