@@ -6,33 +6,72 @@ import { useRouter } from 'next/navigation'
 
 export default function Home() {
   const router = useRouter()
-
-  // Candidate login/signup
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function signIn() {
-    setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    setLoading(false)
+  // Candidate states
+  const [cEmail, setCEmail] = useState('')
+  const [cPassword, setCPassword] = useState('')
 
+  // Company states
+  const [coEmail, setCoEmail] = useState('')
+  const [coPassword, setCoPassword] = useState('')
+
+  // Candidate login
+  async function candidateSignIn() {
+    setLoading(true)
+    const { error } = await supabase.auth.signInWithPassword({
+      email: cEmail,
+      password: cPassword
+    })
+    setLoading(false)
+    if (!error) router.push('/dashboard')
+    else alert(error.message)
+  }
+
+  // Candidate signup
+  async function candidateSignUp() {
+    setLoading(true)
+    const { data, error } = await supabase.auth.signUp({
+      email: cEmail,
+      password: cPassword
+    })
+    setLoading(false)
     if (!error) {
+      await supabase.from('users').insert({
+        id: data.user.id,
+        name: cEmail.split('@')[0]
+      })
       router.push('/dashboard')
     } else alert(error.message)
   }
 
-  async function signUp() {
+  // Company login
+  async function companySignIn() {
     setLoading(true)
-    const { data, error } = await supabase.auth.signUp({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({
+      email: coEmail,
+      password: coPassword
+    })
     setLoading(false)
+    if (!error) router.push('/company/dashboard')
+    else alert(error.message)
+  }
 
+  // Company signup
+  async function companySignUp() {
+    setLoading(true)
+    const { data, error } = await supabase.auth.signUp({
+      email: coEmail,
+      password: coPassword
+    })
+    setLoading(false)
     if (!error) {
-      await supabase.from('users').insert({
+      await supabase.from('companies').insert({
         id: data.user.id,
-        name: email.split('@')[0]
+        name: coEmail.split('@')[0],
+        email: coEmail
       })
-      router.push('/dashboard')
+      router.push('/company/dashboard')
     } else alert(error.message)
   }
 
@@ -45,14 +84,14 @@ export default function Home() {
         alignItems: 'center',
         justifyContent: 'center',
         fontFamily: 'sans-serif',
-        gap: 30,
+        gap: 40,
         padding: 20,
         backgroundColor: '#f5f5f5'
       }}
     >
-      <h1 style={{ fontSize: 36 }}>Developer Assessment</h1>
+      <h1 style={{ fontSize: 36 }}>Welcome to SkillProofAI</h1>
 
-      {/* Candidate Login/Signup */}
+      {/* Candidate Card */}
       <div
         style={{
           padding: 20,
@@ -62,24 +101,24 @@ export default function Home() {
           display: 'flex',
           flexDirection: 'column',
           gap: 10,
-          width: 300
+          width: 320
         }}
       >
         <h2 style={{ textAlign: 'center', marginBottom: 10 }}>Candidate Login / Signup</h2>
         <input
           type="email"
           placeholder="Email"
-          onChange={e => setEmail(e.target.value)}
+          onChange={e => setCEmail(e.target.value)}
           style={{ padding: 8, borderRadius: 5, border: '1px solid #ccc' }}
         />
         <input
           type="password"
           placeholder="Password"
-          onChange={e => setPassword(e.target.value)}
+          onChange={e => setCPassword(e.target.value)}
           style={{ padding: 8, borderRadius: 5, border: '1px solid #ccc' }}
         />
         <button
-          onClick={signIn}
+          onClick={candidateSignIn}
           style={{
             padding: 10,
             backgroundColor: '#0070f3',
@@ -93,7 +132,7 @@ export default function Home() {
           Login
         </button>
         <button
-          onClick={signUp}
+          onClick={candidateSignUp}
           style={{
             padding: 10,
             backgroundColor: '#28a745',
@@ -108,33 +147,60 @@ export default function Home() {
         </button>
       </div>
 
-      {/* Company Login */}
+      {/* Company Card */}
       <div
         style={{
-          marginTop: 20,
           padding: 20,
           border: '1px solid #ccc',
           borderRadius: 10,
           backgroundColor: '#fff',
-          width: 300,
-          textAlign: 'center'
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+          width: 320
         }}
       >
-        <h2>Company Access</h2>
-        <p style={{ color: '#555', marginBottom: 10 }}>Already a registered company?</p>
-        <a
-          href="/company/login"
+        <h2 style={{ textAlign: 'center', marginBottom: 10 }}>Company Login / Signup</h2>
+        <input
+          type="email"
+          placeholder="Company Email"
+          onChange={e => setCoEmail(e.target.value)}
+          style={{ padding: 8, borderRadius: 5, border: '1px solid #ccc' }}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          onChange={e => setCoPassword(e.target.value)}
+          style={{ padding: 8, borderRadius: 5, border: '1px solid #ccc' }}
+        />
+        <button
+          onClick={companySignIn}
           style={{
             padding: 10,
-            display: 'inline-block',
             backgroundColor: '#ff9800',
             color: '#fff',
             borderRadius: 5,
-            textDecoration: 'none'
+            border: 'none',
+            cursor: 'pointer'
           }}
+          disabled={loading}
         >
-          Company Login
-        </a>
+          Login
+        </button>
+        <button
+          onClick={companySignUp}
+          style={{
+            padding: 10,
+            backgroundColor: '#6f42c1',
+            color: '#fff',
+            borderRadius: 5,
+            border: 'none',
+            cursor: 'pointer'
+          }}
+          disabled={loading}
+        >
+          Signup
+        </button>
       </div>
     </main>
   )
