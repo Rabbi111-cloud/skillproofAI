@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '../../../lib/supabaseClient'
 
 export default function ProfilePage() {
-  const { id } = useParams() // the user's ID from the URL
+  const { id } = useParams() // user's ID from the URL
   const router = useRouter()
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -27,7 +27,7 @@ export default function ProfilePage() {
           .from('profiles')
           .select('*')
           .eq('user_id', id)
-          .single() // only one row expected
+          .single()
 
         if (error) {
           console.error('PROFILE FETCH ERROR:', error)
@@ -60,11 +60,11 @@ export default function ProfilePage() {
   else if (score >= 40) level = 'Average'
   else level = 'Very Bad'
 
-  // Filter out undefined or empty skills
+  // Filter out invalid or empty skills
   const filteredSkills = {}
   if (skills && typeof skills === 'object') {
     Object.keys(skills)
-      .filter(skill => skill && skill !== 'undefined')
+      .filter(skill => skill && skill !== 'undefined' && skill !== 'General')
       .forEach(skill => {
         filteredSkills[skill] = skills[skill]
       })
