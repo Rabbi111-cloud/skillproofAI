@@ -21,7 +21,7 @@ export default function PublicProfile({ params }) {
     async function loadProfile() {
       const { data, error } = await supabase
         .from('profiles')
-        .select('email, score, updated_at, skills') // <-- include skills
+        .select('email, score, updated_at, skills') // included skills
         .eq('user_id', id)
         .single()
 
@@ -51,7 +51,7 @@ export default function PublicProfile({ params }) {
       <p><strong>Score:</strong> {profile.score}</p>
       <p><strong>Level:</strong> {getLevel(profile.score)}</p>
 
-      {/* Skill Breakdown Section */}
+      {/* Skill Breakdown */}
       {profile.skills && (
         <>
           <h3>Skill Breakdown</h3>
@@ -60,9 +60,6 @@ export default function PublicProfile({ params }) {
               {skill.toUpperCase()}: {value}%
             </p>
           ))}
-          <p style={{ marginTop: 10, color: '#666' }}>
-            📌 Recruiters now see real ability, not guesses.
-          </p>
         </>
       )}
 
@@ -73,8 +70,7 @@ export default function PublicProfile({ params }) {
       </p>
 
       <p style={{ marginTop: 20 }}>
-        📩 Interested in this candidate?  
-        Contact them directly.
+        📩 Interested in this candidate? Contact them directly.
       </p>
     </main>
   )
