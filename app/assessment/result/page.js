@@ -30,7 +30,7 @@ export default function ResultPage() {
         let totalCorrect = 0
         let skillStats = {}
 
-        // 3️⃣ Calculate scores
+        // 3️⃣ Calculate scores safely
         questions.forEach(q => {
           if (!skillStats[q.skill]) {
             skillStats[q.skill] = { correct: 0, total: 0 }
@@ -38,12 +38,14 @@ export default function ResultPage() {
 
           skillStats[q.skill].total += 1
 
-          if (
-            answers[q.id]?.toLowerCase().trim() ===
-            q.correct.toLowerCase().trim()
-          ) {
-            totalCorrect += 1
-            skillStats[q.skill].correct += 1
+          const userAnswer = answers[q.id]
+          const correctAnswer = q.correct
+
+          if (userAnswer && correctAnswer) {
+            if (userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim()) {
+              totalCorrect += 1
+              skillStats[q.skill].correct += 1
+            }
           }
         })
 
