@@ -15,13 +15,10 @@ export default function ResultPage() {
         console.log('RESULT PAGE STARTED')
 
         // 1️⃣ Get logged-in user
-        const { data: authData, error: authError } =
-          await supabase.auth.getUser()
-
+        const { data: authData, error: authError } = await supabase.auth.getUser()
         if (authError) throw authError
 
         const user = authData?.user
-
         if (!user) {
           router.push('/login')
           return
@@ -50,9 +47,7 @@ export default function ResultPage() {
           }
         })
 
-        const totalScore = Math.round(
-          (totalCorrect / questions.length) * 100
-        )
+        const totalScore = Math.round((totalCorrect / questions.length) * 100)
 
         const skills = {}
         Object.keys(skillStats).forEach(skill => {
@@ -65,34 +60,40 @@ export default function ResultPage() {
         console.log('SKILLS:', skills)
 
         // 4️⃣ Save submission
-        const { error: submissionError } = await supabase
+        const { data: submissionData, error: submissionError } = await supabase
           .from('submissions')
           .insert({
-            user_id: user.id, // ✅ Correct column name
+            user_id: user.id,
             score: totalScore
           })
+          .select()
+          .single()
 
         if (submissionError) throw submissionError
+        console.log('SUBMISSION SAVED:', submissionData)
 
-        // 5️⃣ Update profile
-        const { error: profileError } = await supabase
+        // 5️⃣ Upsert profile (insert if missing, update if exists)
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .update({
+          .upsert({
+            user_id: user.id,
             score: totalScore,
             skills,
             email: user.email
           })
-          .eq('user_id', user.id) // ✅ Correct column name
+          .select()
+          .single()
 
         if (profileError) throw profileError
+        console.log('PROFILE SAVED:', profileData)
 
         // 6️⃣ Cleanup & redirect
         localStorage.removeItem('answers')
         setStatus('Done! Redirecting...')
         router.push('/dashboard')
       } catch (err) {
-        console.error('RESULT PAGE ERROR:', err)
-        setStatus('Error calculating score. Please retry.')
+        console.error('RESULT PAGE ERROR FULL:', err)
+        setStatus(`Error calculating score: ${err.message || JSON.stringify(err)}`)
       }
     }
 
