@@ -1,77 +1,94 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '../../../lib/supabaseClient'
+import { useParams, useRouter } from 'next/navigation'
+import { supabase } from '../../lib/supabaseClient'
 
-export default function PublicProfile({ params }) {
-  const { id } = params
+export default function ProfilePage() {
+  const { id } = useParams() // the user's ID from the URL
+  const router = useRouter()
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
-
-  // Function to determine candidate level based on score
-  function getLevel(score) {
-    if (score >= 90) return 'Excellent'
-    if (score >= 80) return 'Strong'
-    if (score >= 50) return 'Average'
-    if (score >= 20) return 'Below Average'
-    return 'Very Bad'
-  }
+  const [error, setError] = useState('')
 
   useEffect(() => {
-    async function loadProfile() {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('email, score, updated_at, skills') // included skills
-        .eq('user_id', id)
-        .single()
+    async function fetchProfile() {
+      try {
+        setLoading(true)
+        setError('')
 
-      if (!error) {
+        if (!id) {
+          setError('Invalid profile ID')
+          return
+        }
+
+        // Fetch profile from Supabase
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', id)
+          .single() // only one row expected
+
+        if (error) {
+          console.error('PROFILE FETCH ERROR:', error)
+          setError('Profile not found')
+          return
+        }
+
         setProfile(data)
+      } catch (err) {
+        console.error('PROFILE PAGE ERROR:', err)
+        setError('Unexpected error loading profile')
+      } finally {
+        setLoading(false)
       }
-
-      setLoading(false)
     }
 
-    loadProfile()
+    fetchProfile()
   }, [id])
 
-  if (loading) {
-    return <p style={{ padding: 30 }}>Loading profile...</p>
-  }
+  if (loading) return <p style={{ padding: 30 }}>Loading profile...</p>
+  if (error) return <p style={{ padding: 30, color: 'red' }}>{error}</p>
+  if (!profile) return null
 
-  if (!profile) {
-    return <p style={{ padding: 30 }}>Profile not found</p>
+  const { email, score, skills } = profile
+
+  // Determine level based on score
+  let level = 'Unknown'
+  if (score >= 80) level = 'Excellent'
+  else if (score >= 60) level = 'Good'
+  else if (score >= 40) level = 'Average'
+  else level = 'Very Bad'
+
+  // Filter out undefined or empty skills
+  const filteredSkills = {}
+  if (skills && typeof skills === 'object') {
+    Object.keys(skills)
+      .filter(skill => skill && skill !== 'undefined')
+      .forEach(skill => {
+        filteredSkills[skill] = skills[skill]
+      })
   }
 
   return (
-    <main style={{ padding: 40, maxWidth: 600, margin: 'auto' }}>
+    <div style={{ padding: 30 }}>
       <h2>Candidate Profile</h2>
+      <p><strong>Email:</strong> {email}</p>
+      <p><strong>Score:</strong> {score}</p>
+      <p><strong>Level:</strong> {level}</p>
 
-      <p><strong>Email:</strong> {profile.email}</p>
-      <p><strong>Score:</strong> {profile.score}</p>
-      <p><strong>Level:</strong> {getLevel(profile.score)}</p>
-
-      {/* Skill Breakdown */}
-      {profile.skills && (
-        <>
+      {Object.keys(filteredSkills).length > 0 && (
+        <div style={{ marginTop: 20 }}>
           <h3>Skill Breakdown</h3>
-          {Object.entries(profile.skills).map(([skill, value]) => (
-            <p key={skill}>
-              {skill.toUpperCase()}: {value}%
-            </p>
-          ))}
-        </>
+          <ul>
+            {Object.keys(filteredSkills).map(skill => (
+              <li key={skill}>
+                {skill}: {filteredSkills[skill]}%
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
-
-      <hr />
-
-      <p style={{ color: '#666' }}>
-        Last updated: {new Date(profile.updated_at).toLocaleDateString()}
-      </p>
-
-      <p style={{ marginTop: 20 }}>
-        📩 Interested in this candidate? Contact them directly.
-      </p>
-    </main>
+    </div>
   )
 }
