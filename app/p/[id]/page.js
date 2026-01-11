@@ -17,11 +17,18 @@ export default function PublicProfile({ params }) {
     return 'Very Bad'
   }
 
+  // Function to get color based on skill value
+  function getSkillColor(value) {
+    if (value >= 80) return '#4caf50' // green
+    if (value >= 50) return '#ffc107' // yellow
+    return '#f44336' // red
+  }
+
   useEffect(() => {
     async function loadProfile() {
       const { data, error } = await supabase
         .from('profiles')
-        .select('email, score, updated_at')
+        .select('email, score, updated_at, skills')
         .eq('user_id', id)
         .single()
 
@@ -44,14 +51,41 @@ export default function PublicProfile({ params }) {
   }
 
   return (
-    <main style={{ padding: 40, maxWidth: 600, margin: 'auto' }}>
+    <main style={{ padding: 40, maxWidth: 600, margin: 'auto', fontFamily: 'sans-serif' }}>
       <h2>Candidate Profile</h2>
 
       <p><strong>Email:</strong> {profile.email}</p>
       <p><strong>Score:</strong> {profile.score}</p>
       <p><strong>Level:</strong> {getLevel(profile.score)}</p>
 
-      <hr />
+      {/* Skill Breakdown Section */}
+      {profile.skills && (
+        <>
+          <h3>Skill Breakdown</h3>
+          {Object.entries(profile.skills).map(([skill, value]) => (
+            <div key={skill} style={{ marginBottom: 10 }}>
+              <p style={{ margin: 0, fontWeight: 'bold' }}>{skill.toUpperCase()}: {value}%</p>
+              <div style={{
+                background: '#e0e0e0',
+                borderRadius: 4,
+                height: 12,
+                width: '100%',
+                overflow: 'hidden',
+              }}>
+                <div style={{
+                  width: `${value}%`,
+                  background: getSkillColor(value),
+                  height: '100%',
+                  borderRadius: 4,
+                  transition: 'width 0.5s ease-in-out',
+                }} />
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+
+      <hr style={{ margin: '20px 0' }} />
 
       <p style={{ color: '#666' }}>
         Last updated: {new Date(profile.updated_at).toLocaleDateString()}
@@ -64,3 +98,4 @@ export default function PublicProfile({ params }) {
     </main>
   )
 }
+
