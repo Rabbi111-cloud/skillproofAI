@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 
+const ADMIN_EMAIL = 'diggingdeep0007@gmail.com'
+
 export default function Dashboard() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -12,29 +14,23 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function loadDashboard() {
-      // 1. Get logged-in user
-      const { data: authData, error: authError } = await supabase.auth.getUser()
+      const { data: authData, error: authError } =
+        await supabase.auth.getUser()
 
-      if (authError || !authData.user) {
+      if (authError || !authData?.user) {
         router.push('/')
         return
       }
 
       setUser(authData.user)
 
-      // 2. Check if user already submitted assessment
-      const { data: submissionData, error: submissionError } =
-        await supabase
-          .from('submissions')
-          .select('*')
-          .eq('user_id', authData.user.id)
-          .maybeSingle()
+      const { data, error } = await supabase
+        .from('submissions')
+        .select('*')
+        .eq('user_id', authData.user.id)
+        .maybeSingle()
 
-      if (submissionError) {
-        console.error(submissionError)
-      } else {
-        setSubmission(submissionData)
-      }
+      if (!error) setSubmission(data)
 
       setLoading(false)
     }
@@ -50,13 +46,28 @@ export default function Dashboard() {
     <main style={{ padding: 30 }}>
       <h2>Welcome {user.email}</h2>
 
+      {/* 🔐 ADMIN BUTTON */}
+      {user.email === ADMIN_EMAIL && (
+        <button
+          onClick={() => router.push('/admin')}
+          style={{
+            marginBottom: 20,
+            padding: '10px 15px',
+            background: '#0f172a',
+            color: 'white',
+            borderRadius: 6
+          }}
+        >
+          🔐 Go to Admin Dashboard
+        </button>
+      )}
+
       {submission ? (
         <>
           <h3>Assessment Completed ✅</h3>
           <p><strong>Your Score:</strong> {submission.score}</p>
 
           <div style={{ marginTop: 15 }}>
-            {/* ✅ VIEW PROFILE BUTTON FIXED */}
             <button
               onClick={() => router.push(`/p/${user.id}`)}
               style={{ marginRight: 10 }}
@@ -64,7 +75,6 @@ export default function Dashboard() {
               View Profile
             </button>
 
-            {/* ✅ SHARE PROFILE BUTTON */}
             <button
               onClick={() => window.open(`/p/${user.id}`, '_blank')}
             >
