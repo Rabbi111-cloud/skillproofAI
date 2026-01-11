@@ -11,76 +11,107 @@ export default function ResultPage() {
 
   useEffect(() => {
     async function calculateAndSave() {
-      // 1️⃣ Get logged-in user
-      const { data: authData } = await supabase.auth.getUser()
-      const user = authData?.user
+      try {
+        console.log('RESULT PAGE STARTED')
 
-      if (!user) {
-        router.push('/')
-        return
-      }
+        // 1️⃣ Get logged-in user
+        const { data: authData, error: authError } =
+          await supabase.auth.getUser()
 
-      // 2️⃣ Get answers
-      const answers =
-        JSON.parse(localStorage.getItem('answers')) || {}
+        if (authError) throw authError
 
-      let totalCorrect = 0
-      let skillStats = {}
+        const user = authData?.user
 
-      // 3️⃣ Calculate scores
-      questions.forEach(q => {
-        if (!skillStats[q.skill]) {
-          skillStats[q.skill] = { correct: 0, total: 0 }
+        if (!user) {
+          router.push('/login')
+          return
         }
 
-        skillStats[q.skill].total += 1
+        // 2️⃣ Get answers from localStorage
+        const rawAnswers = localStorage.getItem('answers')
+        const answers = rawAnswers ? JSON.parse(rawAnswers) : {}
 
-        if (
-          answers[q.id]?.toLowerCase().trim() ===
-          q.correct.toLowerCase().trim()
-        ) {
-          totalCorrect += 1
-          skillStats[q.skill].correct += 1
-        }
-      })
+        let totalCorrect = 0
+        let skillStats = {}
 
-      const totalScore = Math.round(
-        (totalCorrect / questions.length) * 100
-      )
+        // 3️⃣ Calculate scores
+        questions.forEach(q => {
+          if (!skillStats[q.skill]) {
+            skillStats[q.skill] = { correct: 0, total: 0 }
+          }
 
-      const skills = {}
+          skillStats[q.skill].total += 1
 
-      Object.keys(skillStats).forEach(skill => {
-        skills[skill] = Math.round(
-          (skillStats[skill].correct /
-            skillStats[skill].total) * 100
-        )
-      })
-
-      // 4️⃣ Save submission
-      await supabase.from('submissions').upsert({
-        user_id: user.id,
-        score: totalScore
-      })
-
-      // 5️⃣ Save profile
-      await supabase
-        .from('profiles')
-        .update({
-          score: totalScore,
-          skills,
-          email: user.email
+          if (
+            answers[q.id]?.toLowerCase().trim() ===
+            q.correct.toLowerCase().trim()
+          ) {
+            totalCorrect += 1
+            skillStats[q.skill].correct += 1
+          }
         })
-        .eq('user_id', user.id)
 
-      // 6️⃣ Cleanup & redirect
-      localStorage.removeItem('answers')
-      setStatus('Done!')
-      router.push('/dashboard')
+        const totalScore = Math.round(
+          (totalCorrect / questions.length) * 100
+        )
+
+        const skills = {}
+
+        Object.keys(skillStats).forEach(skill => {
+          skills[skill] = Math.round(
+            (skillStats[skill].correct /
+              skillStats[skill].total) *
+              100
+          )
+        })
+
+        console.log('SCORE:', totalScore)
+        console.log('SKILLS:', skills)
+
+        // 4️⃣ Save submission
+        const { error: submissionError } = await supabase
+          .from('submissions')
+          .insert({
+            auth_user_id: user.id,
+            score: totalScore,
+          })
+
+        if (submissionError) {
+          console.error('SUBMISSION ERROR:', submissionError)
+          throw submissionError
+        }
+
+        // 5️⃣ Update profile
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            score: totalScore,
+            skills,
+            email: user.email,
+          })
+          .eq('auth_user_id', user.id)
+
+        if (profileError) {
+          console.error('PROFILE ERROR:', profileError)
+          throw profileError
+        }
+
+        // 6️⃣ Cleanup & redirect
+        localStorage.removeItem('answers')
+        setStatus('Done! Redirecting...')
+        router.push('/dashboard')
+      } catch (err) {
+        console.error('RESULT PAGE ERROR:', err)
+        setStatus('Error calculating score. Please retry.')
+      }
     }
 
     calculateAndSave()
-  }, [])
+  }, [router])
 
-  return <p style={{ padding: 30 }}>{status}</p>
+  return (
+    <p style={{ padding: 30, fontSize: 18 }}>
+      {status}
+    </p>
+  )
 }
