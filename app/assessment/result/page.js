@@ -8,6 +8,7 @@ import { questions } from '../questions'
 export default function ResultPage() {
   const router = useRouter()
   const [status, setStatus] = useState('Calculating score...')
+  const [skillsDisplay, setSkillsDisplay] = useState({}) // optional: for showing filtered skills
 
   useEffect(() => {
     async function calculateAndSave() {
@@ -30,13 +31,15 @@ export default function ResultPage() {
         let totalCorrect = 0
         let skillStats = {}
 
-        // 3️⃣ Calculate scores safely
+        // 3️⃣ Calculate scores safely and handle undefined skills
         questions.forEach(q => {
-          if (!skillStats[q.skill]) {
-            skillStats[q.skill] = { correct: 0, total: 0 }
+          const skillName = q.skill || 'General' // default to 'General' if missing
+
+          if (!skillStats[skillName]) {
+            skillStats[skillName] = { correct: 0, total: 0 }
           }
 
-          skillStats[q.skill].total += 1
+          skillStats[skillName].total += 1
 
           const userAnswer = answers[q.id]
           const correctAnswer = q.correct
@@ -44,24 +47,29 @@ export default function ResultPage() {
           if (userAnswer && correctAnswer) {
             if (userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim()) {
               totalCorrect += 1
-              skillStats[q.skill].correct += 1
+              skillStats[skillName].correct += 1
             }
           }
         })
 
         const totalScore = Math.round((totalCorrect / questions.length) * 100)
 
+        // 4️⃣ Convert skillStats to % and filter out undefined/empty keys
         const skills = {}
-        Object.keys(skillStats).forEach(skill => {
-          skills[skill] = Math.round(
-            (skillStats[skill].correct / skillStats[skill].total) * 100
-          )
-        })
+        Object.keys(skillStats)
+          .filter(skill => skill && skill !== 'undefined') // remove undefined or empty
+          .forEach(skill => {
+            skills[skill] = Math.round(
+              (skillStats[skill].correct / skillStats[skill].total) * 100
+            )
+          })
 
         console.log('SCORE:', totalScore)
-        console.log('SKILLS:', skills)
+        console.log('SKILLS (filtered):', skills)
 
-        // 4️⃣ Save submission
+        setSkillsDisplay(skills) // optional, can be used to display in your component
+
+        // 5️⃣ Save submission
         const { data: submissionData, error: submissionError } = await supabase
           .from('submissions')
           .insert({
@@ -74,7 +82,7 @@ export default function ResultPage() {
         if (submissionError) throw submissionError
         console.log('SUBMISSION SAVED:', submissionData)
 
-        // 5️⃣ Upsert profile (insert if missing, update if exists)
+        // 6️⃣ Upsert profile (insert if missing, update if exists)
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .upsert({
@@ -89,7 +97,7 @@ export default function ResultPage() {
         if (profileError) throw profileError
         console.log('PROFILE SAVED:', profileData)
 
-        // 6️⃣ Cleanup & redirect
+        // 7️⃣ Cleanup & redirect
         localStorage.removeItem('answers')
         setStatus('Done! Redirecting...')
         router.push('/dashboard')
@@ -103,8 +111,20 @@ export default function ResultPage() {
   }, [router])
 
   return (
-    <p style={{ padding: 30, fontSize: 18 }}>
-      {status}
-    </p>
+    <div style={{ padding: 30, fontSize: 18 }}>
+      <p>{status}</p>
+      {Object.keys(skillsDisplay).length > 0 && (
+        <div style={{ marginTop: 20 }}>
+          <h3>Skill Breakdown</h3>
+          <ul>
+            {Object.keys(skillsDisplay).map(skill => (
+              <li key={skill}>
+                {skill}: {skillsDisplay[skill]}%
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
   )
 }
