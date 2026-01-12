@@ -6,7 +6,7 @@ import { supabase } from '../../../lib/supabaseClient'
 import { questions } from '../../assessment/questions'
 
 export default function ProfilePage() {
-  const { id } = useParams() // auth.users.id
+  const { id } = useParams()
   const [profile, setProfile] = useState(null)
   const [skills, setSkills] = useState({})
   const [loading, setLoading] = useState(true)
@@ -23,7 +23,7 @@ export default function ProfilePage() {
           return
         }
 
-        // 1️⃣ Fetch profile
+        // 1️⃣ fetch profile
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
@@ -31,31 +31,29 @@ export default function ProfilePage() {
           .single()
 
         if (profileError) throw profileError
+
         setProfile(profileData)
 
-        // 2️⃣ Fetch submissions
+        // 2️⃣ fetch submissions
         const { data: submissions, error: subError } = await supabase
           .from('submissions')
           .select('question_id, is_correct')
           .eq('user_id', profileData.user_id)
 
-        if (subError) {
-          console.warn('Submissions blocked:', subError.message)
+        if (subError || !submissions) {
           setSkills({})
           return
         }
 
-        if (!submissions || submissions.length === 0) {
-          setSkills({})
-          return
-        }
-
-        // 3️⃣ Build skill percentages
+        // ✅ FIXED SKILL BREAKDOWN
         const skillStats = {}
 
-        for (const sub of submissions) {
-          const q = questions.find(q => q.id === sub.question_id)
-          if (!q) continue
+        submissions.forEach(sub => {
+          const q = questions.find(
+            q => String(q.id) === String(sub.question_id)
+          )
+
+          if (!q) return
 
           const skill = q.skill
 
@@ -65,21 +63,20 @@ export default function ProfilePage() {
 
           skillStats[skill].total += 1
           if (sub.is_correct) skillStats[skill].correct += 1
-        }
+        })
 
         const skillPercentages = {}
-        for (const skill in skillStats) {
-          const stat = skillStats[skill]
+        Object.entries(skillStats).forEach(([skill, stat]) => {
           skillPercentages[skill] = Math.round(
             (stat.correct / stat.total) * 100
           )
-        }
+        })
 
         setSkills(skillPercentages)
 
       } catch (err) {
-        console.error('PROFILE PAGE ERROR:', err)
-        setError(err.message || 'Failed to load profile')
+        console.error(err)
+        setError('Failed to load profile')
       } finally {
         setLoading(false)
       }
@@ -102,6 +99,7 @@ export default function ProfilePage() {
   return (
     <div style={{ padding: 30 }}>
       <h2>Candidate Profile</h2>
+
       <p><strong>Email:</strong> {email}</p>
       <p><strong>Score:</strong> {score}</p>
       <p><strong>Level:</strong> {level}</p>
