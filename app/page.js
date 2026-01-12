@@ -7,52 +7,87 @@ import { useRouter } from 'next/navigation'
 export default function Home() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState('user') // user | company
   const router = useRouter()
 
+  // ✅ USER SIGNUP (developers only)
   async function signUp() {
-    const { data, error } = await supabase.auth.signUp({ email, password })
-    if (error) return alert(error.message)
-
-    await supabase.from('profiles').insert({
-      id: data.user.id,
+    const { data, error } = await supabase.auth.signUp({
       email,
-      role
+      password
     })
 
-    router.push(role === 'company' ? '/company/dashboard' : '/dashboard')
-  }
-
-  async function signIn() {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) return alert(error.message)
 
-    const { data: profile } = await supabase
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert({
+        user_id: data.user.id, // ✅ correct column
+        email,
+        role: 'user'           // ✅ always user here
+      })
+
+    if (profileError) return alert(profileError.message)
+
+    router.push('/dashboard')
+  }
+
+  // ✅ LOGIN (auto-detect role)
+  async function signIn() {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    })
+
+    if (error) return alert(error.message)
+
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
-      .eq('id', data.user.id)
+      .eq('user_id', data.user.id) // ✅ correct column
       .single()
 
-    if (!profile) return alert('Profile not found')
+    if (profileError || !profile) {
+      return alert('Profile not found. Please contact support.')
+    }
 
-    if (profile.role === 'company') router.push('/company/dashboard')
-    else router.push('/dashboard')
+    if (profile.role === 'company') {
+      router.push('/company/dashboard')
+    } else {
+      router.push('/dashboard')
+    }
   }
 
   return (
-    <main>
+    <main style={{ padding: 40, maxWidth: 400 }}>
       <h1>Developer Assessment</h1>
 
-      <input placeholder="Email" onChange={e => setEmail(e.target.value)} />
-      <input type="password" placeholder="Password" onChange={e => setPassword(e.target.value)} />
+      <input
+        placeholder="Email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        style={{ width: '100%', padding: 10, marginBottom: 10 }}
+      />
 
-      <select onChange={e => setRole(e.target.value)}>
-        <option value="user">Developer</option>
-        <option value="company">Company</option>
-      </select>
+      <input
+        type="password"
+        placeholder="Password"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        style={{ width: '100%', padding: 10, marginBottom: 20 }}
+      />
 
-      <button onClick={signIn}>Login</button>
-      <button onClick={signUp}>Signup</button>
+      <button onClick={signIn} style={{ width: '100%', padding: 10, marginBottom: 10 }}>
+        Login
+      </button>
+
+      <button onClick={signUp} style={{ width: '100%', padding: 10 }}>
+        Sign up as Developer
+      </button>
+
+      <p style={{ marginTop: 20 }}>
+        Are you a company?{' '}
+        <a href="/company/signup">Create a company account</a>
+      </p>
     </main>
   )
 }
