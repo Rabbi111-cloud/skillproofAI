@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { supabase } from '../../../lib/supabaseClient' // fixed import path
-import { questions } from '../../assessment/questions' // fixed import path
+import { supabase } from '../../../lib/supabaseClient'
+import { questions } from '../../assessment/questions'
 
 export default function ProfilePage() {
-  const { id } = useParams() // this should be the profile's user_id
+  const { id } = useParams() // this is the user's auth.id
   const [profile, setProfile] = useState(null)
   const [skills, setSkills] = useState({})
   const [loading, setLoading] = useState(true)
@@ -23,7 +23,7 @@ export default function ProfilePage() {
           return
         }
 
-        // 1️⃣ Fetch profile by user_id
+        // 1️⃣ Fetch profile
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
@@ -31,43 +31,55 @@ export default function ProfilePage() {
           .single()
 
         if (profileError) throw profileError
+
         setProfile(profileData)
 
-        // 2️⃣ Fetch submissions for this user
+        // 2️⃣ Fetch submissions (NON-BLOCKING)
         const { data: submissions, error: subError } = await supabase
           .from('submissions')
           .select('question_id, is_correct')
-          .eq('user_id', profileData.user_id) // ensure this matches profile
-          
-        if (subError) throw subError
+          .eq('user_id', profileData.user_id)
+
+        if (subError) {
+          console.warn('Submissions blocked:', subError.message)
+          setSkills({})
+          return
+        }
 
         // 3️⃣ Build skill percentages
         const skillStats = {}
+
         submissions.forEach(sub => {
           const q = questions.find(q => q.id === sub.question_id)
           if (!q) return
+
           const skill = q.skill
-          if (!skillStats[skill]) skillStats[skill] = { total: 0, correct: 0 }
+          if (!skillStats[skill]) {
+            skillStats[skill] = { total: 0, correct: 0 }
+          }
+
           skillStats[skill].total += 1
           if (sub.is_correct) skillStats[skill].correct += 1
         })
 
         const skillPercentages = {}
         Object.entries(skillStats).forEach(([skill, stat]) => {
-          skillPercentages[skill] = Math.round((stat.correct / stat.total) * 100)
+          skillPercentages[skill] = Math.round(
+            (stat.correct / stat.total) * 100
+          )
         })
 
         setSkills(skillPercentages)
 
       } catch (err) {
         console.error('PROFILE PAGE ERROR:', err)
-        setError('Failed to load profile')
+        setError(err.message || 'Failed to load profile')
       } finally {
         setLoading(false)
       }
     }
 
-    if (id) loadProfile()
+    loadProfile()
   }, [id])
 
   if (loading) return <p style={{ padding: 30 }}>Loading profile...</p>
