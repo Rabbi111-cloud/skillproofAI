@@ -8,7 +8,7 @@ import { questions } from '../questions'
 export default function ResultPage() {
   const router = useRouter()
   const [status, setStatus] = useState('Calculating score...')
-  const [skillsDisplay, setSkillsDisplay] = useState({}) // optional: for showing filtered skills
+  const [skillsDisplay, setSkillsDisplay] = useState({})
 
   useEffect(() => {
     async function calculateAndSave() {
@@ -29,58 +29,38 @@ export default function ResultPage() {
         const answers = JSON.parse(localStorage.getItem('answers')) || {}
 
         let totalCorrect = 0
-        let skillStats = {}
+        const skillStats = {}
 
-        // 3️⃣ Calculate scores safely and handle undefined skills
-        questions.forEach(q => {
-          const skillName = q.skill || 'General' // default to 'General' if missing
-
-          if (!skillStats[skillName]) {
-            skillStats[skillName] = { correct: 0, total: 0 }
-          }
-
+        // 3️⃣ Calculate scores and skill stats
+        for (let q of questions) {
+          const skillName = q.skill || 'General'
+          if (!skillStats[skillName]) skillStats[skillName] = { correct: 0, total: 0 }
           skillStats[skillName].total += 1
 
           const userAnswer = answers[q.id]
-          const correctAnswer = q.correct
-
-          if (userAnswer && correctAnswer) {
-            if (userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim()) {
-              totalCorrect += 1
-              skillStats[skillName].correct += 1
-            }
+          if (userAnswer && q.correct && userAnswer.toLowerCase().trim() === q.correct.toLowerCase().trim()) {
+            totalCorrect += 1
+            skillStats[skillName].correct += 1
           }
+
+          // ✅ Insert each answer into submissions with correct foreign key
+          await supabase.from('submissions').insert({
+            user_id: user.id,
+            question_id: Number(q.id),
+            is_correct: userAnswer && q.correct && userAnswer.toLowerCase().trim() === q.correct.toLowerCase().trim()
+          })
+        }
+
+        // 4️⃣ Calculate skill percentages
+        const skills = {}
+        Object.entries(skillStats).forEach(([skill, stat]) => {
+          skills[skill] = Math.round((stat.correct / stat.total) * 100)
         })
 
+        setSkillsDisplay(skills)
+
+        // 5️⃣ Calculate total score
         const totalScore = Math.round((totalCorrect / questions.length) * 100)
-
-        // 4️⃣ Convert skillStats to % and filter out undefined/empty keys
-        const skills = {}
-        Object.keys(skillStats)
-          .filter(skill => skill && skill !== 'undefined') // remove undefined or empty
-          .forEach(skill => {
-            skills[skill] = Math.round(
-              (skillStats[skill].correct / skillStats[skill].total) * 100
-            )
-          })
-
-        console.log('SCORE:', totalScore)
-        console.log('SKILLS (filtered):', skills)
-
-        setSkillsDisplay(skills) // optional, can be used to display in your component
-
-        // 5️⃣ Save submission
-        const { data: submissionData, error: submissionError } = await supabase
-          .from('submissions')
-          .insert({
-            user_id: user.id,
-            score: totalScore
-          })
-          .select()
-          .single()
-
-        if (submissionError) throw submissionError
-        console.log('SUBMISSION SAVED:', submissionData)
 
         // 6️⃣ Upsert profile (insert if missing, update if exists)
         const { data: profileData, error: profileError } = await supabase
@@ -101,6 +81,7 @@ export default function ResultPage() {
         localStorage.removeItem('answers')
         setStatus('Done! Redirecting...')
         router.push('/dashboard')
+
       } catch (err) {
         console.error('RESULT PAGE ERROR FULL:', err)
         setStatus(`Error calculating score: ${err.message || JSON.stringify(err)}`)
