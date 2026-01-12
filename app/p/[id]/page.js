@@ -1,12 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { supabase } from '../../../lib/supabaseClient'
 
 export default function ProfilePage() {
   const { id } = useParams() // user's ID from the URL
-  const router = useRouter()
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -60,19 +59,30 @@ export default function ProfilePage() {
   else if (score >= 40) level = 'Average'
   else level = 'Very Bad'
 
-  // Filter out invalid or empty skills
+  /**
+   * ✅ SAFE SKILLS FILTER (FIX)
+   * - Allows all valid skills
+   * - Blocks empty / invalid values
+   * - Does NOT remove real categories like System Design, APIs, etc.
+   */
   const filteredSkills = {}
+
   if (skills && typeof skills === 'object') {
-    Object.keys(skills)
-      .filter(skill => skill && skill !== 'undefined' && skill !== 'General')
-      .forEach(skill => {
-        filteredSkills[skill] = skills[skill]
-      })
+    Object.entries(skills).forEach(([skill, value]) => {
+      if (
+        typeof skill === 'string' &&
+        skill.trim() !== '' &&
+        typeof value === 'number'
+      ) {
+        filteredSkills[skill] = value
+      }
+    })
   }
 
   return (
     <div style={{ padding: 30 }}>
       <h2>Candidate Profile</h2>
+
       <p><strong>Email:</strong> {email}</p>
       <p><strong>Score:</strong> {score}</p>
       <p><strong>Level:</strong> {level}</p>
@@ -80,10 +90,10 @@ export default function ProfilePage() {
       {Object.keys(filteredSkills).length > 0 && (
         <div style={{ marginTop: 20 }}>
           <h3>Skill Breakdown</h3>
-          <ul>
-            {Object.keys(filteredSkills).map(skill => (
+          <ul style={{ paddingLeft: 20 }}>
+            {Object.entries(filteredSkills).map(([skill, percent]) => (
               <li key={skill}>
-                {skill}: {filteredSkills[skill]}%
+                <strong>{skill}</strong>: {percent}%
               </li>
             ))}
           </ul>
