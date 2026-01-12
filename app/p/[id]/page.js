@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { supabase } from '../ib/supabaseClient' // fixed import path
+import { supabase } from '../lib/supabaseClient' // fixed import path
 import { questions } from '../../assessment/questions' // fixed import path
 
 export default function ProfilePage() {
