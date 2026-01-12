@@ -31,23 +31,29 @@ export default function ResultPage() {
         let totalCorrect = 0
         const skillStats = {}
 
-        // 3️⃣ Calculate scores and skill stats
+        // 3️⃣ Calculate scores and insert submissions
         for (let q of questions) {
           const skillName = q.skill || 'General'
+
           if (!skillStats[skillName]) skillStats[skillName] = { correct: 0, total: 0 }
           skillStats[skillName].total += 1
 
           const userAnswer = answers[q.id]
-          if (userAnswer && q.correct && userAnswer.toLowerCase().trim() === q.correct.toLowerCase().trim()) {
+          const isCorrect =
+            userAnswer &&
+            q.correct &&
+            userAnswer.toLowerCase().trim() === q.correct.toLowerCase().trim()
+
+          if (isCorrect) {
             totalCorrect += 1
             skillStats[skillName].correct += 1
           }
 
-          // ✅ Insert each answer into submissions with correct foreign key
+          // ✅ Insert submission per question
           await supabase.from('submissions').insert({
             user_id: user.id,
             question_id: Number(q.id),
-            is_correct: userAnswer && q.correct && userAnswer.toLowerCase().trim() === q.correct.toLowerCase().trim()
+            is_correct: !!isCorrect
           })
         }
 
@@ -56,21 +62,23 @@ export default function ResultPage() {
         Object.entries(skillStats).forEach(([skill, stat]) => {
           skills[skill] = Math.round((stat.correct / stat.total) * 100)
         })
-
         setSkillsDisplay(skills)
 
         // 5️⃣ Calculate total score
         const totalScore = Math.round((totalCorrect / questions.length) * 100)
 
-        // 6️⃣ Upsert profile (insert if missing, update if exists)
+        // 6️⃣ Upsert profile safely
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .upsert({
-            user_id: user.id,
-            score: totalScore,
-            skills,
-            email: user.email
-          })
+          .upsert(
+            {
+              user_id: user.id,
+              score: totalScore,
+              skills,
+              email: user.email
+            },
+            { onConflict: ['user_id'] } // ✅ avoids duplicate key error
+          )
           .select()
           .single()
 
@@ -81,7 +89,6 @@ export default function ResultPage() {
         localStorage.removeItem('answers')
         setStatus('Done! Redirecting...')
         router.push('/dashboard')
-
       } catch (err) {
         console.error('RESULT PAGE ERROR FULL:', err)
         setStatus(`Error calculating score: ${err.message || JSON.stringify(err)}`)
@@ -94,6 +101,7 @@ export default function ResultPage() {
   return (
     <div style={{ padding: 30, fontSize: 18 }}>
       <p>{status}</p>
+
       {Object.keys(skillsDisplay).length > 0 && (
         <div style={{ marginTop: 20 }}>
           <h3>Skill Breakdown</h3>
