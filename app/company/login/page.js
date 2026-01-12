@@ -1,140 +1,73 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 
-export default function CompanyLoginPage() {
-  const router = useRouter()
+export default function CompanyLogin() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [mode, setMode] = useState('login') // 'login' or 'signup'
-  const [loading, setLoading] = useState(false)
+  const router = useRouter()
 
-  // Handle Signup
-  async function handleSignup() {
-    try {
-      setLoading(true)
-
-      // Check if user already exists
-      const { data: existingUser } = await supabase.auth.admin.listUsers({
-        filter: `email=eq.${email}`
-      })
-
-      if (existingUser?.length > 0) {
-        return alert('User already exists. Please login instead.')
-      }
-
-      const { data, error } = await supabase.auth.signUp({ email, password })
-      if (error) throw error
-
-      // Create profile as company
-      await supabase.from('profiles').insert({
-        user_id: data.user.id,
-        email,
-        role: 'company'
-      })
-
-      // Create company record
-      await supabase.from('companies').insert({
-        id: data.user.id,
-        name: email.split('@')[0],
-        email
-      })
-
-      router.push('/company/dashboard')
-    } catch (err) {
-      alert(err.message || 'Signup failed')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Handle Login
   async function handleLogin() {
-    try {
-      setLoading(true)
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) throw error
+    if (!email || !password) return alert('Email and password are required')
 
-      // Ensure role is company
-      const { data: profile } = await supabase
+    // 1️⃣ Sign in
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) return alert(error.message)
+
+    const userId = data.user.id
+
+    try {
+      // 2️⃣ Fetch profile
+      const { data: profile, error: profError } = await supabase
         .from('profiles')
         .select('role')
-        .eq('user_id', data.user.id)
+        .eq('user_id', userId)
         .single()
 
-      if (!profile) return alert('Profile not found')
-      if (profile.role !== 'company') return alert('Access denied: Not a company account')
+      if (profError || !profile) return alert('Profile not found')
 
+      if (profile.role !== 'company') {
+        alert('Access denied: Not a company account')
+        await supabase.auth.signOut()
+        return
+      }
+
+      // 3️⃣ Redirect to dashboard
       router.push('/company/dashboard')
     } catch (err) {
-      alert(err.message || 'Login failed')
-    } finally {
-      setLoading(false)
+      console.error(err)
+      alert('Login failed: ' + (err.message || JSON.stringify(err)))
     }
   }
 
   return (
-    <main style={{ padding: 30, maxWidth: 400, margin: 'auto' }}>
-      <h1 style={{ textAlign: 'center' }}>
-        {mode === 'login' ? 'Company Login' : 'Company Signup'}
-      </h1>
+    <div style={{ padding: 30 }}>
+      <h1>Company Login</h1>
 
       <input
         type="email"
         placeholder="Email"
         value={email}
         onChange={e => setEmail(e.target.value)}
-        style={{ width: '100%', padding: 8, marginBottom: 10 }}
+        style={{ display: 'block', margin: '10px 0', padding: 6 }}
       />
       <input
         type="password"
         placeholder="Password"
         value={password}
         onChange={e => setPassword(e.target.value)}
-        style={{ width: '100%', padding: 8, marginBottom: 10 }}
+        style={{ display: 'block', margin: '10px 0', padding: 6 }}
       />
 
-      {mode === 'login' ? (
-        <>
-          <button
-            onClick={handleLogin}
-            disabled={loading}
-            style={{ padding: 10, width: '100%', marginBottom: 10 }}
-          >
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-          <p style={{ textAlign: 'center' }}>
-            Don't have an account?{' '}
-            <span
-              onClick={() => setMode('signup')}
-              style={{ color: 'blue', cursor: 'pointer' }}
-            >
-              Sign up
-            </span>
-          </p>
-        </>
-      ) : (
-        <>
-          <button
-            onClick={handleSignup}
-            disabled={loading}
-            style={{ padding: 10, width: '100%', marginBottom: 10 }}
-          >
-            {loading ? 'Signing up...' : 'Sign Up'}
-          </button>
-          <p style={{ textAlign: 'center' }}>
-            Already have an account?{' '}
-            <span
-              onClick={() => setMode('login')}
-              style={{ color: 'blue', cursor: 'pointer' }}
-            >
-              Login
-            </span>
-          </p>
-        </>
-      )}
-    </main>
+      <button onClick={handleLogin} style={{ padding: '6px 12px', marginTop: 10 }}>
+        Login
+      </button>
+
+      <p style={{ marginTop: 20 }}>
+        Don't have an account? <a href="/company/signup">Signup here</a>
+      </p>
+    </div>
   )
 }
