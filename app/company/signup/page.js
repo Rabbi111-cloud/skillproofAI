@@ -1,85 +1,83 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 
 export default function CompanySignup() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [companyName, setCompanyName] = useState('')
   const router = useRouter()
 
-  async function signUpCompany() {
+  async function handleSignup() {
+    if (!email || !password || !companyName) return alert('All fields are required')
+
+    // 1️⃣ Sign up in Supabase Auth
+    const { data, error } = await supabase.auth.signUp({ email, password })
+    if (error) return alert(error.message)
+
+    const userId = data.user.id
+
     try {
-      setLoading(true)
-
-      // 1️⃣ Create auth user
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password
+      // 2️⃣ Insert into companies table
+      const { error: compError } = await supabase.from('companies').insert({
+        id: userId, // same ID as auth user
+        name: companyName,
+        email
       })
+      if (compError) throw compError
 
-      if (error) throw error
+      // 3️⃣ Insert into profiles table
+      const { error: profError } = await supabase.from('profiles').insert({
+        user_id: userId,
+        email,
+        role: 'company',
+        company_id: userId
+      })
+      if (profError) throw profError
 
-      // 2️⃣ Create company row
-      const { data: company, error: companyError } = await supabase
-        .from('companies')
-        .insert({
-          name: email.split('@')[0],
-          email
-        })
-        .select()
-        .single()
-
-      if (companyError) throw companyError
-
-      // 3️⃣ Create profile linked to company
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          user_id: data.user.id,
-          email,
-          role: 'company',
-          company_id: company.id
-        })
-
-      if (profileError) throw profileError
-
-      router.push('/company/dashboard')
+      alert('Company registered! Please login now.')
+      router.push('/company/login')
     } catch (err) {
-      alert(err.message)
-    } finally {
-      setLoading(false)
+      console.error(err)
+      alert('Signup failed: ' + (err.message || JSON.stringify(err)))
     }
   }
 
   return (
-    <main style={{ padding: 40, maxWidth: 400 }}>
-      <h1>Company Sign Up</h1>
+    <div style={{ padding: 30 }}>
+      <h1>Company Signup</h1>
 
       <input
-        placeholder="Company Email"
+        type="text"
+        placeholder="Company Name"
+        value={companyName}
+        onChange={e => setCompanyName(e.target.value)}
+        style={{ display: 'block', margin: '10px 0', padding: 6 }}
+      />
+      <input
+        type="email"
+        placeholder="Email"
         value={email}
         onChange={e => setEmail(e.target.value)}
-        style={{ width: '100%', padding: 10, marginBottom: 10 }}
+        style={{ display: 'block', margin: '10px 0', padding: 6 }}
       />
-
       <input
         type="password"
         placeholder="Password"
         value={password}
         onChange={e => setPassword(e.target.value)}
-        style={{ width: '100%', padding: 10, marginBottom: 10 }}
+        style={{ display: 'block', margin: '10px 0', padding: 6 }}
       />
 
-      <button
-        onClick={signUpCompany}
-        disabled={loading}
-        style={{ padding: 10, width: '100%' }}
-      >
-        {loading ? 'Creating company…' : 'Create Company Account'}
+      <button onClick={handleSignup} style={{ padding: '6px 12px', marginTop: 10 }}>
+        Signup
       </button>
-    </main>
+
+      <p style={{ marginTop: 20 }}>
+        Already have an account? <a href="/company/login">Login here</a>
+      </p>
+    </div>
   )
 }
