@@ -3,81 +3,85 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '../../../lib/supabaseClient'
+import { questions } from '../../../assessment/questions'
 
 export default function ProfilePage() {
-  const { id } = useParams() // user's ID from the URL
+  const { id } = useParams()
   const [profile, setProfile] = useState(null)
+  const [skills, setSkills] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    async function fetchProfile() {
+    async function loadProfile() {
       try {
         setLoading(true)
-        setError('')
 
-        if (!id) {
-          setError('Invalid profile ID')
-          return
-        }
-
-        // Fetch profile from Supabase
-        const { data, error } = await supabase
+        /** 1️⃣ Fetch profile */
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('user_id', id)
           .single()
 
-        if (error) {
-          console.error('PROFILE FETCH ERROR:', error)
-          setError('Profile not found')
-          return
-        }
+        if (profileError) throw profileError
+        setProfile(profileData)
 
-        setProfile(data)
+        /** 2️⃣ Fetch submissions */
+        const { data: submissions, error: subError } = await supabase
+          .from('submissions')
+          .select('question_id, is_correct')
+          .eq('user_id', id)
+
+        if (subError) throw subError
+
+        /** 3️⃣ Build skill stats */
+        const skillStats = {}
+
+        submissions.forEach(sub => {
+          const q = questions.find(q => q.id === sub.question_id)
+          if (!q) return
+
+          const skill = q.skill
+
+          if (!skillStats[skill]) {
+            skillStats[skill] = { total: 0, correct: 0 }
+          }
+
+          skillStats[skill].total += 1
+          if (sub.is_correct) skillStats[skill].correct += 1
+        })
+
+        /** 4️⃣ Convert to percentages */
+        const skillPercentages = {}
+        Object.entries(skillStats).forEach(([skill, stat]) => {
+          skillPercentages[skill] = Math.round(
+            (stat.correct / stat.total) * 100
+          )
+        })
+
+        setSkills(skillPercentages)
       } catch (err) {
-        console.error('PROFILE PAGE ERROR:', err)
-        setError('Unexpected error loading profile')
+        console.error(err)
+        setError('Failed to load profile')
       } finally {
         setLoading(false)
       }
     }
 
-    fetchProfile()
+    if (id) loadProfile()
   }, [id])
 
   if (loading) return <p style={{ padding: 30 }}>Loading profile...</p>
   if (error) return <p style={{ padding: 30, color: 'red' }}>{error}</p>
   if (!profile) return null
 
-  const { email, score, skills } = profile
+  const { email, score } = profile
 
-  // Determine level based on score
-  let level = 'Unknown'
+  let level = 'Very Bad'
   if (score >= 80) level = 'Excellent'
   else if (score >= 60) level = 'Good'
   else if (score >= 40) level = 'Average'
-  else level = 'Very Bad'
-
-  /**
-   * ✅ SAFE SKILLS FILTER (FIX)
-   * - Allows all valid skills
-   * - Blocks empty / invalid values
-   * - Does NOT remove real categories like System Design, APIs, etc.
-   */
-  const filteredSkills = {}
-
-  if (skills && typeof skills === 'object') {
-    Object.entries(skills).forEach(([skill, value]) => {
-      if (
-        typeof skill === 'string' &&
-        skill.trim() !== '' &&
-        typeof value === 'number'
-      ) {
-        filteredSkills[skill] = value
-      }
-    })
-  }
 
   return (
     <div style={{ padding: 30 }}>
@@ -87,11 +91,11 @@ export default function ProfilePage() {
       <p><strong>Score:</strong> {score}</p>
       <p><strong>Level:</strong> {level}</p>
 
-      {Object.keys(filteredSkills).length > 0 && (
+      {Object.keys(skills).length > 0 && (
         <div style={{ marginTop: 20 }}>
           <h3>Skill Breakdown</h3>
-          <ul style={{ paddingLeft: 20 }}>
-            {Object.entries(filteredSkills).map(([skill, percent]) => (
+          <ul>
+            {Object.entries(skills).map(([skill, percent]) => (
               <li key={skill}>
                 <strong>{skill}</strong>: {percent}%
               </li>
