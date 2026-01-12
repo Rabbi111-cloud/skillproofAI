@@ -11,10 +11,20 @@ export default function CompanyLoginPage() {
   const [mode, setMode] = useState('login') // 'login' or 'signup'
   const [loading, setLoading] = useState(false)
 
-  // Signup function
+  // Handle Signup
   async function handleSignup() {
     try {
       setLoading(true)
+
+      // Check if user already exists
+      const { data: existingUser } = await supabase.auth.admin.listUsers({
+        filter: `email=eq.${email}`
+      })
+
+      if (existingUser?.length > 0) {
+        return alert('User already exists. Please login instead.')
+      }
+
       const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) throw error
 
@@ -25,20 +35,12 @@ export default function CompanyLoginPage() {
         role: 'company'
       })
 
-      // Create company record if not exists
-      const { data: existing } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('id', data.user.id)
-        .single()
-
-      if (!existing) {
-        await supabase.from('companies').insert({
-          id: data.user.id,
-          name: email.split('@')[0],
-          email
-        })
-      }
+      // Create company record
+      await supabase.from('companies').insert({
+        id: data.user.id,
+        name: email.split('@')[0],
+        email
+      })
 
       router.push('/company/dashboard')
     } catch (err) {
@@ -48,7 +50,7 @@ export default function CompanyLoginPage() {
     }
   }
 
-  // Login function
+  // Handle Login
   async function handleLogin() {
     try {
       setLoading(true)
@@ -75,7 +77,9 @@ export default function CompanyLoginPage() {
 
   return (
     <main style={{ padding: 30, maxWidth: 400, margin: 'auto' }}>
-      <h1 style={{ textAlign: 'center' }}>{mode === 'login' ? 'Company Login' : 'Company Signup'}</h1>
+      <h1 style={{ textAlign: 'center' }}>
+        {mode === 'login' ? 'Company Login' : 'Company Signup'}
+      </h1>
 
       <input
         type="email"
