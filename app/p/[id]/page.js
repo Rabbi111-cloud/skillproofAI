@@ -6,7 +6,7 @@ import { supabase } from '../../../lib/supabaseClient'
 import { questions } from '../../assessment/questions'
 
 export default function ProfilePage() {
-  const { id } = useParams() // this is the user's auth.id
+  const { id } = useParams() // auth.users.id
   const [profile, setProfile] = useState(null)
   const [skills, setSkills] = useState({})
   const [loading, setLoading] = useState(true)
@@ -31,10 +31,9 @@ export default function ProfilePage() {
           .single()
 
         if (profileError) throw profileError
-
         setProfile(profileData)
 
-        // 2️⃣ Fetch submissions (NON-BLOCKING)
+        // 2️⃣ Fetch submissions
         const { data: submissions, error: subError } = await supabase
           .from('submissions')
           .select('question_id, is_correct')
@@ -46,28 +45,35 @@ export default function ProfilePage() {
           return
         }
 
+        if (!submissions || submissions.length === 0) {
+          setSkills({})
+          return
+        }
+
         // 3️⃣ Build skill percentages
         const skillStats = {}
 
-        submissions.forEach(sub => {
+        for (const sub of submissions) {
           const q = questions.find(q => q.id === sub.question_id)
-          if (!q) return
+          if (!q) continue
 
           const skill = q.skill
+
           if (!skillStats[skill]) {
             skillStats[skill] = { total: 0, correct: 0 }
           }
 
           skillStats[skill].total += 1
           if (sub.is_correct) skillStats[skill].correct += 1
-        })
+        }
 
         const skillPercentages = {}
-        Object.entries(skillStats).forEach(([skill, stat]) => {
+        for (const skill in skillStats) {
+          const stat = skillStats[skill]
           skillPercentages[skill] = Math.round(
             (stat.correct / stat.total) * 100
           )
-        })
+        }
 
         setSkills(skillPercentages)
 
