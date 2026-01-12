@@ -3,11 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '../../../lib/supabaseClient'
-// ✅ Correct relative path to questions.js
-import { questions } from '../../assessment/questions' // adjust based on your folder structure
+import { questions } from '../../assessment/questions' // correct relative path
 
 export default function ProfilePage() {
-  const { id } = useParams()
+  const { id } = useParams() // user ID from URL
   const [profile, setProfile] = useState(null)
   const [skills, setSkills] = useState({})
   const [loading, setLoading] = useState(true)
@@ -17,18 +16,27 @@ export default function ProfilePage() {
     async function loadProfile() {
       try {
         setLoading(true)
+        setError('')
 
-        /** 1️⃣ Fetch profile */
+        if (!id) {
+          setError('Invalid profile ID')
+          return
+        }
+
+        // 1️⃣ Fetch user profile
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('user_id', id)
           .single()
 
-        if (profileError) throw profileError
+        if (profileError || !profileData) {
+          throw profileError || new Error('Profile not found')
+        }
+
         setProfile(profileData)
 
-        /** 2️⃣ Fetch submissions */
+        // 2️⃣ Fetch submissions for this user
         const { data: submissions, error: subError } = await supabase
           .from('submissions')
           .select('question_id, is_correct')
@@ -36,14 +44,14 @@ export default function ProfilePage() {
 
         if (subError) throw subError
 
-        /** 3️⃣ Build skill stats from submissions + questions */
+        // 3️⃣ Build skill stats
         const skillStats = {}
 
         submissions.forEach(sub => {
           const q = questions.find(q => q.id === sub.question_id)
-          if (!q || !q.skill) return
+          if (!q) return
 
-          const skill = q.skill
+          const skill = q.skill || 'General'
 
           if (!skillStats[skill]) skillStats[skill] = { total: 0, correct: 0 }
 
@@ -51,15 +59,15 @@ export default function ProfilePage() {
           if (sub.is_correct) skillStats[skill].correct += 1
         })
 
-        /** 4️⃣ Convert to percentages */
+        // 4️⃣ Convert to percentages
         const skillPercentages = {}
         Object.entries(skillStats).forEach(([skill, stat]) => {
-          skillPercentages[skill] = Math.round((stat.correct / stat.total) * 100)
+          skillPercentages[skill] = stat.total > 0 ? Math.round((stat.correct / stat.total) * 100) : 0
         })
 
         setSkills(skillPercentages)
       } catch (err) {
-        console.error('PROFILE PAGE ERROR:', err)
+        console.error('Profile load error:', err)
         setError('Failed to load profile')
       } finally {
         setLoading(false)
@@ -75,6 +83,7 @@ export default function ProfilePage() {
 
   const { email, score } = profile
 
+  // 5️⃣ Determine level
   let level = 'Very Bad'
   if (score >= 80) level = 'Excellent'
   else if (score >= 60) level = 'Good'
@@ -87,8 +96,7 @@ export default function ProfilePage() {
       <p><strong>Score:</strong> {score}</p>
       <p><strong>Level:</strong> {level}</p>
 
-      {/* ✅ Display skill breakdown */}
-      {Object.keys(skills).length > 0 && (
+      {Object.keys(skills).length > 0 ? (
         <div style={{ marginTop: 20 }}>
           <h3>Skill Breakdown</h3>
           <ul>
@@ -99,6 +107,8 @@ export default function ProfilePage() {
             ))}
           </ul>
         </div>
+      ) : (
+        <p>No skill breakdown available yet.</p>
       )}
     </div>
   )
