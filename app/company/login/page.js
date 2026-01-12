@@ -11,55 +11,61 @@ export default function CompanyLoginPage() {
   const [mode, setMode] = useState('login') // 'login' or 'signup'
   const [loading, setLoading] = useState(false)
 
-  // ✅ Company signup
-  async function signUp() {
+  async function handleSignup() {
     try {
       setLoading(true)
       const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) throw error
 
-      // Insert into profiles table with role 'company'
+      // Insert into profiles table
       await supabase.from('profiles').insert({
         user_id: data.user.id,
         email,
         role: 'company'
       })
 
-      // Insert into companies table (optional, for multi-company logic)
-      await supabase.from('companies').insert({
-        id: data.user.id, // same as user_id
-        name: email.split('@')[0],
-        email
-      })
+      // Insert into companies table (if not already exists)
+      const { data: existing } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('id', data.user.id)
+        .single()
+
+      if (!existing) {
+        await supabase.from('companies').insert({
+          id: data.user.id,
+          name: email.split('@')[0],
+          email
+        })
+      }
 
       router.push('/company/dashboard')
     } catch (err) {
-      alert(err.message || 'Failed to sign up')
+      alert(err.message || 'Signup failed')
     } finally {
       setLoading(false)
     }
   }
 
-  // ✅ Company login
-  async function signIn() {
+  async function handleLogin() {
     try {
       setLoading(true)
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
 
-      // Verify profile role
-      const { data: profile, error: profileError } = await supabase
+      // Ensure the user is a company
+      const { data: profile } = await supabase
         .from('profiles')
         .select('role')
         .eq('user_id', data.user.id)
         .single()
 
-      if (profileError || !profile) return alert('Profile not found')
+      if (!profile) return alert('Profile not found')
       if (profile.role !== 'company') return alert('Access denied: Not a company account')
 
       router.push('/company/dashboard')
     } catch (err) {
-      alert(err.message || 'Failed to login')
+      alert(err.message || 'Login failed')
     } finally {
       setLoading(false)
     }
@@ -87,7 +93,7 @@ export default function CompanyLoginPage() {
       {mode === 'login' ? (
         <>
           <button
-            onClick={signIn}
+            onClick={handleLogin}
             disabled={loading}
             style={{ padding: 10, width: '100%', marginBottom: 10 }}
           >
@@ -106,7 +112,7 @@ export default function CompanyLoginPage() {
       ) : (
         <>
           <button
-            onClick={signUp}
+            onClick={handleSignup}
             disabled={loading}
             style={{ padding: 10, width: '100%', marginBottom: 10 }}
           >
