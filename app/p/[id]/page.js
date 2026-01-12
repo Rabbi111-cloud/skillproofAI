@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { supabase } from '../../lib/supabaseClient' // fixed import path
-import { questions } from '../../assessment/questions' // fixed import path
+import { supabase } from '../../../lib/supabaseClient' // fixed import path
+import { questions } from '../../../assessment/questions' // fixed import path
 
 export default function ProfilePage() {
   const { id } = useParams() // this should be the profile's user_id
