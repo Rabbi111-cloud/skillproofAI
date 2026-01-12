@@ -10,7 +10,8 @@ export default function StepPage() {
   const router = useRouter()
   const { step } = useParams()
 
-  const [index, setIndex] = useState(Number(step) || 0)
+  // ✅ Make step 1-based from URL, convert to 0-based index for array
+  const [index, setIndex] = useState(Math.max(Number(step) - 1, 0))
   const [answer, setAnswer] = useState('')
   const [timeLeft, setTimeLeft] = useState(TOTAL_TIME)
   const moved = useRef(false)
@@ -19,7 +20,7 @@ export default function StepPage() {
 
   // ✅ keep index synced with URL
   useEffect(() => {
-    setIndex(Number(step) || 0)
+    setIndex(Math.max(Number(step) - 1, 0))
   }, [step])
 
   // ✅ reset state per question
@@ -51,6 +52,7 @@ export default function StepPage() {
     return () => clearInterval(timer)
   }, [index])
 
+  // ✅ next question navigation (1-based URL)
   const nextQuestion = () => {
     if (moved.current) return
     moved.current = true
@@ -60,7 +62,7 @@ export default function StepPage() {
     localStorage.setItem('answers', JSON.stringify(stored))
 
     if (index < questions.length - 1) {
-      router.push(`/assessment/${index + 1}`)
+      router.push(`/assessment/${index + 2}`) // ✅ next step is +1, 1-based
     } else {
       router.push('/assessment/result')
     }
@@ -96,4 +98,3 @@ export default function StepPage() {
     </div>
   )
 }
-
