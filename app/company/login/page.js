@@ -11,20 +11,21 @@ export default function CompanyLoginPage() {
   const [mode, setMode] = useState('login') // 'login' or 'signup'
   const [loading, setLoading] = useState(false)
 
+  // Signup function
   async function handleSignup() {
     try {
       setLoading(true)
       const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) throw error
 
-      // Insert into profiles table
+      // Create profile as company
       await supabase.from('profiles').insert({
         user_id: data.user.id,
         email,
         role: 'company'
       })
 
-      // Insert into companies table (if not already exists)
+      // Create company record if not exists
       const { data: existing } = await supabase
         .from('companies')
         .select('id')
@@ -47,13 +48,14 @@ export default function CompanyLoginPage() {
     }
   }
 
+  // Login function
   async function handleLogin() {
     try {
       setLoading(true)
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
 
-      // Ensure the user is a company
+      // Ensure role is company
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
@@ -73,7 +75,7 @@ export default function CompanyLoginPage() {
 
   return (
     <main style={{ padding: 30, maxWidth: 400, margin: 'auto' }}>
-      <h1>{mode === 'login' ? 'Company Login' : 'Company Signup'}</h1>
+      <h1 style={{ textAlign: 'center' }}>{mode === 'login' ? 'Company Login' : 'Company Signup'}</h1>
 
       <input
         type="email"
