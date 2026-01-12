@@ -1,80 +1,82 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { questions } from '../questions'
 
+const TOTAL_TIME = 30
+
 export default function StepPage() {
   const router = useRouter()
-  const params = useParams()
-  const stepIndex = parseInt(params.step) || 0 // current question index
+  const { step } = useParams()
 
-  const question = questions[stepIndex]
+  const [index, setIndex] = useState(Number(step) || 0)
   const [answer, setAnswer] = useState('')
-  const TOTAL_TIME = 30 // total seconds per question
   const [timeLeft, setTimeLeft] = useState(TOTAL_TIME)
+  const moved = useRef(false)
 
-  // Load saved answer if user navigated back
-  useEffect(() => {
-    const savedAnswers = JSON.parse(localStorage.getItem('answers')) || {}
-    if (savedAnswers[question.id]) {
-      setAnswer(savedAnswers[question.id])
-    }
-  }, [question.id])
+  const question = questions[index]
 
-  // Timer countdown
+  // ✅ keep index synced with URL
   useEffect(() => {
+    setIndex(Number(step) || 0)
+  }, [step])
+
+  // ✅ reset state per question
+  useEffect(() => {
+    if (!question) return
+
+    moved.current = false
+    setTimeLeft(TOTAL_TIME)
+
+    const saved = JSON.parse(localStorage.getItem('answers')) || {}
+    setAnswer(saved[question.id] || '')
+  }, [index])
+
+  // ✅ timer logic
+  useEffect(() => {
+    if (moved.current) return
+
     const timer = setInterval(() => {
-      setTimeLeft(prev => prev - 1)
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          nextQuestion()
+          return 0
+        }
+        return prev - 1
+      })
     }, 1000)
 
-    if (timeLeft <= 0) {
-      handleNext()
-    }
-
     return () => clearInterval(timer)
-  }, [timeLeft])
+  }, [index])
 
-  const handleNext = () => {
-    // Save current answer
-    const storedAnswers = JSON.parse(localStorage.getItem('answers')) || {}
-    storedAnswers[question.id] = answer
-    localStorage.setItem('answers', JSON.stringify(storedAnswers))
+  const nextQuestion = () => {
+    if (moved.current) return
+    moved.current = true
 
-    // Move to next question or result page
-    if (stepIndex + 1 < questions.length) {
-      router.push(`/assessment/${stepIndex + 1}`)
+    const stored = JSON.parse(localStorage.getItem('answers')) || {}
+    stored[question.id] = answer
+    localStorage.setItem('answers', JSON.stringify(stored))
+
+    if (index < questions.length - 1) {
+      router.push(`/assessment/${index + 1}`)
     } else {
       router.push('/assessment/result')
     }
   }
 
-  // Calculate progress percentage for the bar
-  const progressPercent = (timeLeft / TOTAL_TIME) * 100
+  if (!question) {
+    return <p style={{ padding: 30 }}>Invalid question</p>
+  }
 
   return (
     <div style={{ padding: 30 }}>
-      <h2>Question {stepIndex + 1} of {questions.length}</h2>
-      
-      {/* Timer display */}
+      <h2>
+        Question {index + 1} of {questions.length}
+      </h2>
+
       <p><strong>Time left:</strong> {timeLeft}s</p>
-      
-      {/* Progress bar */}
-      <div style={{ 
-        width: '100%', 
-        height: 10, 
-        backgroundColor: '#eee', 
-        borderRadius: 5, 
-        marginBottom: 20,
-        overflow: 'hidden'
-      }}>
-        <div style={{
-          width: `${progressPercent}%`,
-          height: '100%',
-          backgroundColor: '#4caf50',
-          transition: 'width 1s linear'
-        }} />
-      </div>
 
       <p>{question.question}</p>
 
@@ -86,7 +88,7 @@ export default function StepPage() {
       />
 
       <button
-        onClick={handleNext}
+        onClick={nextQuestion}
         style={{ marginTop: 20, padding: '10px 20px' }}
       >
         Next
@@ -94,3 +96,4 @@ export default function StepPage() {
     </div>
   )
 }
+
