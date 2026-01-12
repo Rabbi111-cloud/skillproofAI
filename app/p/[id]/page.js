@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '../../../lib/supabaseClient'
-import { questions } from '../../../assessment/questions'
+// ✅ Correct relative path to questions.js
+import { questions } from '../../assessment/questions' // adjust based on your folder structure
 
 export default function ProfilePage() {
   const { id } = useParams()
@@ -35,18 +36,16 @@ export default function ProfilePage() {
 
         if (subError) throw subError
 
-        /** 3️⃣ Build skill stats */
+        /** 3️⃣ Build skill stats from submissions + questions */
         const skillStats = {}
 
         submissions.forEach(sub => {
           const q = questions.find(q => q.id === sub.question_id)
-          if (!q) return
+          if (!q || !q.skill) return
 
           const skill = q.skill
 
-          if (!skillStats[skill]) {
-            skillStats[skill] = { total: 0, correct: 0 }
-          }
+          if (!skillStats[skill]) skillStats[skill] = { total: 0, correct: 0 }
 
           skillStats[skill].total += 1
           if (sub.is_correct) skillStats[skill].correct += 1
@@ -55,14 +54,12 @@ export default function ProfilePage() {
         /** 4️⃣ Convert to percentages */
         const skillPercentages = {}
         Object.entries(skillStats).forEach(([skill, stat]) => {
-          skillPercentages[skill] = Math.round(
-            (stat.correct / stat.total) * 100
-          )
+          skillPercentages[skill] = Math.round((stat.correct / stat.total) * 100)
         })
 
         setSkills(skillPercentages)
       } catch (err) {
-        console.error(err)
+        console.error('PROFILE PAGE ERROR:', err)
         setError('Failed to load profile')
       } finally {
         setLoading(false)
@@ -86,11 +83,11 @@ export default function ProfilePage() {
   return (
     <div style={{ padding: 30 }}>
       <h2>Candidate Profile</h2>
-
       <p><strong>Email:</strong> {email}</p>
       <p><strong>Score:</strong> {score}</p>
       <p><strong>Level:</strong> {level}</p>
 
+      {/* ✅ Display skill breakdown */}
       {Object.keys(skills).length > 0 && (
         <div style={{ marginTop: 20 }}>
           <h3>Skill Breakdown</h3>
