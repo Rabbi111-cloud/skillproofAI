@@ -13,36 +13,36 @@ export default function CompanySignup() {
   const handleSignup = async () => {
     setLoading(true)
     try {
-      const { data: existingUser } = await supabase.auth.getUserByEmail(email)
+      const { data, error } = await supabase.auth.signUp({ email, password })
 
-      if (existingUser?.user) {
-        const { data: profile } = await supabase
+      if (error && error.message.includes('User already registered')) {
+        const { data: existingProfile } = await supabase
           .from('profiles')
           .select('role')
-          .eq('user_id', existingUser.user.id)
-          .single()
+          .eq('email', email)
+          .maybeSingle()
 
-        if (profile?.role === 'company') {
-          alert('This email is already registered as company. Please login.')
-          router.push('/company/login')
-          return
-        } else if (profile?.role === 'candidate') {
-          throw new Error('This email is already registered as candidate. Use candidate login.')
+        if (existingProfile) {
+          if (existingProfile.role === 'company') {
+            alert('Email already registered as company. Please login.')
+            router.push('/company/login')
+            return
+          } else {
+            throw new Error('Email already registered as candidate. Use candidate login.')
+          }
         } else {
-          throw new Error('This email exists but profile is invalid. Contact support.')
+          throw new Error('Email exists but profile missing. Contact support.')
         }
       }
 
-      const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) throw error
       if (!data.user) throw new Error('Signup failed')
 
-      const { error: profileError } = await supabase.from('profiles').insert({
+      await supabase.from('profiles').insert({
         user_id: data.user.id,
         email,
         role: 'company'
       })
-      if (profileError) throw profileError
 
       router.push('/company/dashboard')
     } catch (err) {
