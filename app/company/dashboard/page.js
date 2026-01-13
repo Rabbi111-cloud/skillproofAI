@@ -20,27 +20,34 @@ export default function CompanyDashboard() {
   useEffect(() => {
     async function checkUser() {
       setLoading(true)
+
+      // Get the logged-in user
       const { data: { user }, error } = await supabase.auth.getUser()
       if (error || !user) {
         router.push('/company/login')
         return
       }
 
-      // Fetch company_id
+      // Fetch user's profile to check if it's a company
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('company_id')
+        .select('company_name, company_id')
         .eq('user_id', user.id)
         .single()
 
-      if (profileError || !profile || !profile.company_id) {
+      // Deny access if no company_name
+      if (profileError || !profile?.company_name) {
+        alert('Access denied: Not a company account')
         await supabase.auth.signOut()
         router.push('/company/login')
         return
       }
 
-      setUser({ ...user, company_id: profile.company_id })
+      // ✅ User is a company
+      setUser({ ...user, company_id: profile.company_id, company_name: profile.company_name })
+      setLoading(false)
     }
+
     checkUser()
   }, [router])
 
@@ -63,8 +70,9 @@ export default function CompanyDashboard() {
         setLoading(false)
       }
     }
-    fetchCandidates()
-  }, [])
+
+    if (user) fetchCandidates()
+  }, [user])
 
   if (loading) return <p style={{ padding: 30 }}>Loading...</p>
   if (error) return <p style={{ padding: 30, color: 'red' }}>{error}</p>
@@ -81,7 +89,6 @@ export default function CompanyDashboard() {
 
   // 4️⃣ View Profile
   const viewProfile = (candidateId) => {
-    // Opens the profile page with skill breakdown
     router.push(`/p/${candidateId}`)
   }
 
@@ -92,12 +99,24 @@ export default function CompanyDashboard() {
 
   return (
     <div style={{ padding: 30 }}>
-      <h1>Company Dashboard</h1>
+      <h1>Company Dashboard ({user.company_name})</h1>
 
       {/* Search & Filter */}
       <div style={{ margin: '20px 0', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-        <input type="text" placeholder="Search by email" value={searchEmail} onChange={e => setSearchEmail(e.target.value)} style={{ padding: 6, flex: '1 1 200px' }} />
-        <input type="number" placeholder="Min score" value={minScore} onChange={e => setMinScore(e.target.value)} style={{ padding: 6, width: 120 }} />
+        <input
+          type="text"
+          placeholder="Search by email"
+          value={searchEmail}
+          onChange={e => setSearchEmail(e.target.value)}
+          style={{ padding: 6, flex: '1 1 200px' }}
+        />
+        <input
+          type="number"
+          placeholder="Min score"
+          value={minScore}
+          onChange={e => setMinScore(e.target.value)}
+          style={{ padding: 6, width: 120 }}
+        />
       </div>
 
       {paginatedCandidates.length === 0 ? (
