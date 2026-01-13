@@ -15,7 +15,7 @@ export default function CompanyLogin() {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
-      if (!data.user) throw new Error('No user session')
+      if (!data.user) throw new Error('Login failed')
 
       const { data: profile } = await supabase
         .from('profiles')
