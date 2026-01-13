@@ -9,7 +9,7 @@ export default function ResultPage() {
   const router = useRouter()
   const [status, setStatus] = useState('Calculating score...')
   const [skillsDisplay, setSkillsDisplay] = useState({})
-  const [totalScore, setTotalScore] = useState(0)
+  const [totalScore, setTotalScore] = useState(null)
   const [done, setDone] = useState(false)
 
   useEffect(() => {
@@ -25,11 +25,18 @@ export default function ResultPage() {
         }
 
         // 2️⃣ Answers
-        const answers = JSON.parse(localStorage.getItem('answers')) || {}
-        const answeredQuestionIds = Object.keys(answers)
+        const rawAnswers = JSON.parse(localStorage.getItem('answers')) || {}
 
-        // 🚨 CRITICAL GUARD — no answers, no scoring
-        if (answeredQuestionIds.length === 0) {
+        // normalize keys to numbers
+        const answers = {}
+        Object.keys(rawAnswers).forEach(k => {
+          answers[Number(k)] = rawAnswers[k]
+        })
+
+        const answeredIds = Object.keys(answers)
+
+        // 🚨 HARD STOP: no answers = no result
+        if (answeredIds.length === 0) {
           router.push('/assessment/1')
           return
         }
@@ -38,25 +45,26 @@ export default function ResultPage() {
         const skillStats = {}
         const submissionsToInsert = []
 
-        // 3️⃣ Only process ANSWERED questions
+        // 3️⃣ Process ONLY answered questions
         questions.forEach(q => {
           const userAnswer = answers[q.id]
           if (!userAnswer) return
 
-          const skillName = q.skill || 'General'
-          if (!skillStats[skillName]) {
-            skillStats[skillName] = { correct: 0, total: 0 }
+          const skill = q.skill || 'General'
+          if (!skillStats[skill]) {
+            skillStats[skill] = { correct: 0, total: 0 }
           }
 
-          skillStats[skillName].total += 1
+          skillStats[skill].total += 1
 
           const isCorrect =
             q.correct &&
-            userAnswer.toLowerCase().trim() === q.correct.toLowerCase().trim()
+            userAnswer.trim().toLowerCase() ===
+              q.correct.trim().toLowerCase()
 
           if (isCorrect) {
-            skillStats[skillName].correct += 1
             correctCount += 1
+            skillStats[skill].correct += 1
           }
 
           submissionsToInsert.push({
@@ -66,29 +74,37 @@ export default function ResultPage() {
           })
         })
 
-        // 4️⃣ Insert submissions (only answered)
+        // 🚨 SAFETY CHECK
+        if (submissionsToInsert.length === 0) {
+          router.push('/assessment/1')
+          return
+        }
+
+        // 4️⃣ Insert submissions
         const { error: subError } = await supabase
           .from('submissions')
           .insert(submissionsToInsert)
 
         if (subError) throw subError
 
-        // 5️⃣ Skill percentages
+        // 5️⃣ Skill breakdown
         const skills = {}
         Object.entries(skillStats).forEach(([skill, stat]) => {
-          skills[skill] = Math.round((stat.correct / stat.total) * 100)
+          skills[skill] = Math.round(
+            (stat.correct / stat.total) * 100
+          )
         })
 
         setSkillsDisplay(skills)
 
-        // 6️⃣ Score based on answered questions
+        // 6️⃣ Final score (NO NaN POSSIBLE)
         const finalScore = Math.round(
           (correctCount / submissionsToInsert.length) * 100
         )
 
         setTotalScore(finalScore)
 
-        // 7️⃣ Save profile ONLY NOW
+        // 7️⃣ Save profile
         const { error: profileError } = await supabase
           .from('profiles')
           .upsert(
@@ -108,7 +124,7 @@ export default function ResultPage() {
         setDone(true)
       } catch (err) {
         console.error(err)
-        setStatus(`Error calculating score: ${err.message}`)
+        setStatus(`Error calculating score`)
       }
     }
 
@@ -117,25 +133,21 @@ export default function ResultPage() {
 
   return (
     <div style={{ padding: 30 }}>
-      <h2>Result Page</h2>
+      <h2>Result</h2>
       <p>{status}</p>
 
-      {done && (
+      {done && totalScore !== null && (
         <>
           <p><strong>Total Score:</strong> {totalScore}%</p>
 
-          {Object.keys(skillsDisplay).length > 0 && (
-            <div>
-              <h3>Skill Breakdown</h3>
-              <ul>
-                {Object.entries(skillsDisplay).map(([skill, value]) => (
-                  <li key={skill}>
-                    {skill}: {value}%
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <h3>Skill Breakdown</h3>
+          <ul>
+            {Object.entries(skillsDisplay).map(([skill, value]) => (
+              <li key={skill}>
+                {skill}: {value}%
+              </li>
+            ))}
+          </ul>
 
           <button onClick={() => router.push('/dashboard')}>
             Go to Dashboard
