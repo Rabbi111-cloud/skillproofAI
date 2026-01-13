@@ -14,24 +14,23 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function loadDashboard() {
-      const { data: authData, error: authError } =
-        await supabase.auth.getUser()
+      const { data: authData } = await supabase.auth.getUser()
 
-      if (authError || !authData?.user) {
+      if (!authData?.user) {
         router.push('/login')
         return
       }
 
       setUser(authData.user)
 
-      // ✅ CORRECT: check profiles, not submissions
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
         .select('score')
         .eq('user_id', authData.user.id)
         .single()
 
-      if (!profileError && profile?.score !== null) {
+      // ✅ IMPORTANT FIX
+      if (profile?.score > 0) {
         setSubmission(profile)
       }
 
@@ -41,26 +40,14 @@ export default function Dashboard() {
     loadDashboard()
   }, [router])
 
-  if (loading) {
-    return <p style={{ padding: 20 }}>Loading dashboard...</p>
-  }
+  if (loading) return <p>Loading dashboard...</p>
 
   return (
     <main style={{ padding: 30 }}>
       <h2>Welcome {user.email}</h2>
 
-      {/* 🔐 ADMIN BUTTON */}
       {user.email === ADMIN_EMAIL && (
-        <button
-          onClick={() => router.push('/admin')}
-          style={{
-            marginBottom: 20,
-            padding: '10px 15px',
-            background: '#0f172a',
-            color: 'white',
-            borderRadius: 6
-          }}
-        >
+        <button onClick={() => router.push('/admin')}>
           🔐 Go to Admin Dashboard
         </button>
       )}
@@ -70,25 +57,17 @@ export default function Dashboard() {
           <h3>Assessment Completed ✅</h3>
           <p><strong>Your Score:</strong> {submission.score}%</p>
 
-          <div style={{ marginTop: 15 }}>
-            <button
-              onClick={() => router.push(`/p/${user.id}`)}
-              style={{ marginRight: 10 }}
-            >
-              View Profile
-            </button>
+          <button onClick={() => router.push(`/p/${user.id}`)}>
+            View Profile
+          </button>
 
-            <button
-              onClick={() => window.open(`/p/${user.id}`, '_blank')}
-            >
-              Share Profile
-            </button>
-          </div>
+          <button onClick={() => window.open(`/p/${user.id}`, '_blank')}>
+            Share Profile
+          </button>
         </>
       ) : (
         <>
           <p>You have not taken the assessment yet.</p>
-
           <button onClick={() => router.push('/assessment/1')}>
             Take Assessment
           </button>
