@@ -21,7 +21,7 @@ export default function CompanyDashboard() {
     async function checkUser() {
       setLoading(true)
 
-      // Get the logged-in user
+      // Get logged-in user
       const { data: { user }, error } = await supabase.auth.getUser()
       if (error || !user) {
         router.push('/company/login')
@@ -35,15 +35,26 @@ export default function CompanyDashboard() {
         .eq('user_id', user.id)
         .single()
 
-      // Deny access if no company_name
-      if (profileError || !profile?.company_name) {
-        alert('Access denied: Not a company account')
+      // Deny access if no company_name OR if their email exists as a candidate
+      const { data: candidateCheck, error: candidateError } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('email', user.email)
+        .is('company_id', null) // candidate account
+        .single()
+
+      if (
+        profileError ||
+        !profile?.company_name ||        // no company name
+        candidateCheck?.user_id          // email exists as candidate
+      ) {
+        alert('Access denied: Not a valid company account')
         await supabase.auth.signOut()
         router.push('/company/login')
         return
       }
 
-      // ✅ User is a company
+      // ✅ User is a valid company
       setUser({ ...user, company_id: profile.company_id, company_name: profile.company_name })
       setLoading(false)
     }
@@ -70,9 +81,8 @@ export default function CompanyDashboard() {
         setLoading(false)
       }
     }
-
-    if (user) fetchCandidates()
-  }, [user])
+    fetchCandidates()
+  }, [])
 
   if (loading) return <p style={{ padding: 30 }}>Loading...</p>
   if (error) return <p style={{ padding: 30, color: 'red' }}>{error}</p>
@@ -80,8 +90,8 @@ export default function CompanyDashboard() {
 
   // 3️⃣ Filtering & Pagination
   const filteredCandidates = candidates
-    .filter(c => (!searchEmail || c.email.toLowerCase().includes(searchEmail.toLowerCase())))
-    .filter(c => (!minScore || c.score >= parseInt(minScore)))
+    .filter(c => !searchEmail || c.email.toLowerCase().includes(searchEmail.toLowerCase()))
+    .filter(c => !minScore || c.score >= parseInt(minScore))
     .sort((a, b) => b.score - a.score)
 
   const totalPages = Math.ceil(filteredCandidates.length / PAGE_SIZE)
@@ -99,7 +109,7 @@ export default function CompanyDashboard() {
 
   return (
     <div style={{ padding: 30 }}>
-      <h1>Company Dashboard ({user.company_name})</h1>
+      <h1>Company Dashboard</h1>
 
       {/* Search & Filter */}
       <div style={{ margin: '20px 0', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -133,8 +143,18 @@ export default function CompanyDashboard() {
                 <p><strong>Level:</strong> {level}</p>
 
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={() => viewProfile(candidate.user_id)} style={{ padding: '6px 10px', cursor: 'pointer', borderRadius: 4, border: '1px solid #0070f3', backgroundColor: '#0070f3', color: '#fff' }}>View Profile</button>
-                  <button onClick={() => downloadPDF(candidate.user_id)} style={{ padding: '6px 10px', cursor: 'pointer', borderRadius: 4, border: '1px solid #0070f3', backgroundColor: '#fff', color: '#0070f3' }}>Download PDF</button>
+                  <button
+                    onClick={() => viewProfile(candidate.user_id)}
+                    style={{ padding: '6px 10px', cursor: 'pointer', borderRadius: 4, border: '1px solid #0070f3', backgroundColor: '#0070f3', color: '#fff' }}
+                  >
+                    View Profile
+                  </button>
+                  <button
+                    onClick={() => downloadPDF(candidate.user_id)}
+                    style={{ padding: '6px 10px', cursor: 'pointer', borderRadius: 4, border: '1px solid #0070f3', backgroundColor: '#fff', color: '#0070f3' }}
+                  >
+                    Download PDF
+                  </button>
                 </div>
               </div>
             )
