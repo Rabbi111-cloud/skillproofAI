@@ -1,53 +1,43 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../../lib/supabaseClient'
 import { questions } from '../questions'
 
 export default function ResultPage() {
   const router = useRouter()
+  const ran = useRef(false) // 🔒 prevent double execution
+
   const [status, setStatus] = useState('Calculating score...')
   const [skillsDisplay, setSkillsDisplay] = useState({})
   const [totalScore, setTotalScore] = useState(null)
-  const [done, setDone] = useState(false)
 
   useEffect(() => {
+    if (ran.current) return
+    ran.current = true
+
     async function calculateAndSave() {
       try {
         // 1️⃣ Auth
-        const { data: authData } = await supabase.auth.getUser()
-        const user = authData?.user
+        const { data } = await supabase.auth.getUser()
+        const user = data?.user
 
         if (!user) {
           router.push('/login')
           return
         }
 
-        // 2️⃣ Answers
-        const rawAnswers = JSON.parse(localStorage.getItem('answers')) || {}
-
-        // normalize keys to numbers
-        const answers = {}
-        Object.keys(rawAnswers).forEach(k => {
-          answers[Number(k)] = rawAnswers[k]
-        })
-
-        const answeredIds = Object.keys(answers)
-
-        // 🚨 HARD STOP: no answers = no result
-        if (answeredIds.length === 0) {
-          router.push('/assessment/1')
-          return
-        }
+        // 2️⃣ Load answers
+        const rawAnswers =
+          JSON.parse(localStorage.getItem('answers')) || {}
 
         let correctCount = 0
         const skillStats = {}
-        const submissionsToInsert = []
+        const submissions = []
 
-        // 3️⃣ Process ONLY answered questions
         questions.forEach(q => {
-          const userAnswer = answers[q.id]
+          const userAnswer = rawAnswers[q.id]
           if (!userAnswer) return
 
           const skill = q.skill || 'General'
@@ -63,31 +53,27 @@ export default function ResultPage() {
               q.correct.trim().toLowerCase()
 
           if (isCorrect) {
-            correctCount += 1
-            skillStats[skill].correct += 1
+            correctCount++
+            skillStats[skill].correct++
           }
 
-          submissionsToInsert.push({
+          submissions.push({
             user_id: user.id,
             question_id: Number(q.id),
             is_correct: !!isCorrect
           })
         })
 
-        // 🚨 SAFETY CHECK
-        if (submissionsToInsert.length === 0) {
-          router.push('/assessment/1')
+        // 🚨 If user somehow reached result with no answers
+        if (submissions.length === 0) {
+          setStatus('No answers submitted.')
           return
         }
 
-        // 4️⃣ Insert submissions
-        const { error: subError } = await supabase
-          .from('submissions')
-          .insert(submissionsToInsert)
+        // 3️⃣ Save submissions
+        await supabase.from('submissions').insert(submissions)
 
-        if (subError) throw subError
-
-        // 5️⃣ Skill breakdown
+        // 4️⃣ Skill %
         const skills = {}
         Object.entries(skillStats).forEach(([skill, stat]) => {
           skills[skill] = Math.round(
@@ -97,34 +83,29 @@ export default function ResultPage() {
 
         setSkillsDisplay(skills)
 
-        // 6️⃣ Final score (NO NaN POSSIBLE)
-        const finalScore = Math.round(
-          (correctCount / submissionsToInsert.length) * 100
+        // 5️⃣ Final score
+        const score = Math.round(
+          (correctCount / submissions.length) * 100
         )
 
-        setTotalScore(finalScore)
+        setTotalScore(score)
 
-        // 7️⃣ Save profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert(
-            {
-              user_id: user.id,
-              score: finalScore,
-              skills,
-              email: user.email
-            },
-            { onConflict: ['user_id'] }
-          )
-
-        if (profileError) throw profileError
+        // 6️⃣ Save profile
+        await supabase.from('profiles').upsert(
+          {
+            user_id: user.id,
+            score,
+            skills,
+            email: user.email
+          },
+          { onConflict: ['user_id'] }
+        )
 
         localStorage.removeItem('answers')
         setStatus('Assessment complete!')
-        setDone(true)
       } catch (err) {
         console.error(err)
-        setStatus(`Error calculating score`)
+        setStatus('Failed to calculate score')
       }
     }
 
@@ -133,23 +114,26 @@ export default function ResultPage() {
 
   return (
     <div style={{ padding: 30 }}>
-      <h2>Result</h2>
+      <h2>Assessment Result</h2>
       <p>{status}</p>
 
-      {done && totalScore !== null && (
+      {totalScore !== null && (
         <>
           <p><strong>Total Score:</strong> {totalScore}%</p>
 
           <h3>Skill Breakdown</h3>
           <ul>
-            {Object.entries(skillsDisplay).map(([skill, value]) => (
+            {Object.entries(skillsDisplay).map(([skill, val]) => (
               <li key={skill}>
-                {skill}: {value}%
+                {skill}: {val}%
               </li>
             ))}
           </ul>
 
-          <button onClick={() => router.push('/dashboard')}>
+          <button
+            style={{ marginTop: 20 }}
+            onClick={() => router.push('/dashboard')}
+          >
             Go to Dashboard
           </button>
         </>
