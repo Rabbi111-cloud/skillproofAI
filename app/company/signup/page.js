@@ -13,28 +13,22 @@ export default function CompanySignup() {
   const handleSignup = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password })
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('email', email)
+        .maybeSingle()
 
-      if (error && error.message.includes('User already registered')) {
-        const { data: existingProfile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('email', email)
-          .maybeSingle()
-
-        if (existingProfile) {
-          if (existingProfile.role === 'company') {
-            alert('Email already registered as company. Please login.')
-            router.push('/company/login')
-            return
-          } else {
-            throw new Error('Email already registered as candidate. Use candidate login.')
-          }
+      if (existingProfile) {
+        if (existingProfile.role === 'company') {
+          alert('Email already registered as company. Please login.')
         } else {
-          throw new Error('Email exists but profile missing. Contact support.')
+          alert('Email registered as candidate. Use candidate login.')
         }
+        return
       }
 
+      const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) throw error
       if (!data.user) throw new Error('Signup failed')
 
@@ -44,7 +38,8 @@ export default function CompanySignup() {
         role: 'company'
       })
 
-      router.push('/company/dashboard')
+      alert('Signup successful! Please login.')
+      router.push('/company/login')
     } catch (err) {
       alert(err.message)
     } finally {
