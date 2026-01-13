@@ -1,98 +1,52 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 
-const ADMIN_EMAIL = 'diggingdeep0007@gmail.com'
-
-export default function Dashboard() {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [submission, setSubmission] = useState(null)
+export default function CompanyDashboard() {
   const router = useRouter()
+  const [company, setCompany] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function loadDashboard() {
-      const { data: authData, error: authError } = await supabase.auth.getUser()
+    async function load() {
+      try {
+        const { data: auth } = await supabase.auth.getUser()
+        if (!auth?.user) throw new Error('Not authenticated')
 
-      if (authError || !authData?.user) {
-        router.push('/login')
-        return
+        const { data, error } = await supabase
+          .from('companies')
+          .select('*')
+          .eq('user_id', auth.user.id)
+          .single()
+
+        if (error) throw error
+
+        setCompany(data)
+      } catch (err) {
+        console.error('[DASHBOARD ERROR]', err)
+        router.push('/company/login')
+      } finally {
+        setLoading(false)
       }
-
-      const currentUser = authData.user
-      setUser(currentUser)
-
-      // ✅ Fetch profile
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', currentUser.id)
-        .single()
-
-      if (!profileError && profile) {
-        // ✅ Only consider assessment done if score exists (not null) and skills exist
-        if (typeof profile.score === 'number' && profile.skills) {
-          setSubmission(profile)
-        }
-      }
-
-      setLoading(false)
     }
 
-    loadDashboard()
+    load()
   }, [router])
 
-  if (loading) {
-    return <p style={{ padding: 20 }}>Loading dashboard...</p>
-  }
+  if (loading) return <p>Loading...</p>
 
   return (
     <main style={{ padding: 30 }}>
-      <h2>Welcome {user.email}</h2>
+      <h1>{company.name}</h1>
+      <p>{company.email}</p>
 
-      {user.email === ADMIN_EMAIL && (
-        <button
-          onClick={() => router.push('/admin')}
-          style={{
-            marginBottom: 20,
-            padding: '10px 15px',
-            background: '#0f172a',
-            color: 'white',
-            borderRadius: 6
-          }}
-        >
-          🔐 Go to Admin Dashboard
-        </button>
-      )}
+      <hr />
 
-      {submission ? (
-        <>
-          <h3>Assessment Completed ✅</h3>
-          <p><strong>Your Score:</strong> {submission.score}%</p>
-
-          <div style={{ marginTop: 15 }}>
-            <button onClick={() => router.push(`/p/${user.id}`)}>
-              View Profile
-            </button>
-
-            <button
-              onClick={() => window.open(`/p/${user.id}`, '_blank')}
-              style={{ marginLeft: 10 }}
-            >
-              Share Profile
-            </button>
-          </div>
-        </>
-      ) : (
-        <>
-          <p>You have not taken the assessment yet.</p>
-          <button onClick={() => router.push('/assessment/1')}>
-            Take Assessment
-          </button>
-        </>
-      )}
+      <button onClick={() => router.push('/company/candidates')}>
+        View Candidates
+      </button>
     </main>
   )
 }
