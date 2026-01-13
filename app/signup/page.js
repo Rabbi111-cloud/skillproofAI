@@ -13,34 +13,34 @@ export default function CandidateSignup() {
   const handleSignup = async () => {
     setLoading(true)
     try {
-      // 1️⃣ Check if email already exists
-      const { data: existingUser } = await supabase.auth.getUserByEmail(email)
+      // 1️⃣ Try signup
+      const { data, error } = await supabase.auth.signUp({ email, password })
 
-      if (existingUser?.user) {
-        // Check profile role
-        const { data: profile } = await supabase
+      if (error && error.message.includes('User already registered')) {
+        // User exists → check profile table
+        const { data: existingProfile } = await supabase
           .from('profiles')
           .select('role')
-          .eq('user_id', existingUser.user.id)
-          .single()
+          .eq('email', email)
+          .maybeSingle()
 
-        if (profile?.role === 'candidate') {
-          alert('This email is already registered as candidate. Please login.')
-          router.push('/login')
-          return
-        } else if (profile?.role === 'company') {
-          throw new Error('This email is already registered as a company. Use company login.')
+        if (existingProfile) {
+          if (existingProfile.role === 'candidate') {
+            alert('Email already registered as candidate. Please login.')
+            router.push('/login')
+            return
+          } else {
+            throw new Error('Email already registered as company. Use company login.')
+          }
         } else {
-          throw new Error('This email exists but profile is invalid. Contact support.')
+          throw new Error('Email exists but profile missing. Contact support.')
         }
       }
 
-      // 2️⃣ Signup new user
-      const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) throw error
       if (!data.user) throw new Error('Signup failed')
 
-      // 3️⃣ Insert candidate profile
+      // 2️⃣ Insert profile
       const { error: profileError } = await supabase.from('profiles').insert({
         user_id: data.user.id,
         email,
