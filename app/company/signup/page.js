@@ -22,18 +22,19 @@ export default function CompanySignup() {
     try {
       // 2️⃣ Insert into companies table
       const { error: compError } = await supabase.from('companies').insert({
-        id: userId, // same ID as auth user
+        id: userId,
         name: companyName,
         email
       })
       if (compError) throw compError
 
-      // 3️⃣ Insert into profiles table
+      // 3️⃣ Insert into profiles table with company_name
       const { error: profError } = await supabase.from('profiles').insert({
         user_id: userId,
         email,
         role: 'company',
-        company_id: userId
+        company_id: userId,
+        company_name: companyName // <- MUST ADD
       })
       if (profError) throw profError
 
