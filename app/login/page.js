@@ -13,12 +13,10 @@ export default function CandidateLogin() {
   const handleLogin = async () => {
     setLoading(true)
     try {
-      // Sign in
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
       if (!data.user) throw new Error('Login failed')
 
-      // Fetch profile and check role
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
@@ -53,11 +51,7 @@ export default function CandidateLogin() {
         onChange={e => setPassword(e.target.value)}
         style={{ width: '100%', padding: 10, marginBottom: 20 }}
       />
-      <button
-        onClick={handleLogin}
-        disabled={loading}
-        style={{ width: '100%', padding: 12 }}
-      >
+      <button onClick={handleLogin} disabled={loading} style={{ width: '100%', padding: 12 }}>
         {loading ? 'Logging in...' : 'Login'}
       </button>
     </main>
