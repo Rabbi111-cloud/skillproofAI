@@ -64,11 +64,7 @@ export default function CompanySignup() {
         onChange={e => setPassword(e.target.value)}
         style={{ width: '100%', padding: 10, marginBottom: 20 }}
       />
-      <button
-        onClick={handleSignup}
-        disabled={loading}
-        style={{ width: '100%', padding: 12 }}
-      >
+      <button onClick={handleSignup} disabled={loading} style={{ width: '100%', padding: 12 }}>
         {loading ? 'Signing up...' : 'Signup'}
       </button>
     </main>
