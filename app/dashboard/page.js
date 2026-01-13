@@ -18,25 +18,28 @@ export default function Dashboard() {
         await supabase.auth.getUser()
 
       if (authError || !authData?.user) {
-        router.push('/')
+        router.push('/login')
         return
       }
 
       setUser(authData.user)
 
-      const { data, error } = await supabase
-        .from('submissions')
-        .select('*')
+      // ✅ CORRECT: check profiles, not submissions
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('score')
         .eq('user_id', authData.user.id)
-        .maybeSingle()
+        .single()
 
-      if (!error) setSubmission(data)
+      if (!profileError && profile?.score !== null) {
+        setSubmission(profile)
+      }
 
       setLoading(false)
     }
 
     loadDashboard()
-  }, [])
+  }, [router])
 
   if (loading) {
     return <p style={{ padding: 20 }}>Loading dashboard...</p>
@@ -65,7 +68,7 @@ export default function Dashboard() {
       {submission ? (
         <>
           <h3>Assessment Completed ✅</h3>
-          <p><strong>Your Score:</strong> {submission.score}</p>
+          <p><strong>Your Score:</strong> {submission.score}%</p>
 
           <div style={{ marginTop: 15 }}>
             <button
@@ -86,7 +89,7 @@ export default function Dashboard() {
         <>
           <p>You have not taken the assessment yet.</p>
 
-          <button onClick={() => router.push('/assessment')}>
+          <button onClick={() => router.push('/assessment/1')}>
             Take Assessment
           </button>
         </>
