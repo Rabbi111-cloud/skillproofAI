@@ -13,7 +13,7 @@ export default function CandidateDashboard() {
     async function load() {
       try {
         const { data: auth } = await supabase.auth.getUser()
-        if (!auth?.user) throw new Error('Not authenticated')
+        if (!auth?.user) throw new Error('Not logged in')
 
         const { data, error } = await supabase
           .from('profiles')
@@ -23,6 +23,7 @@ export default function CandidateDashboard() {
 
         if (error) throw error
 
+        // 🚫 SAFETY: redirect companies away
         if (data.role === 'company') {
           router.push('/company/dashboard')
           return
@@ -30,7 +31,7 @@ export default function CandidateDashboard() {
 
         setProfile(data)
       } catch (err) {
-        console.error('[DASHBOARD ERROR]', err)
+        console.error('[CANDIDATE DASHBOARD ERROR]', err)
         router.push('/login')
       } finally {
         setLoading(false)
@@ -44,13 +45,21 @@ export default function CandidateDashboard() {
 
   return (
     <main style={{ padding: 30 }}>
-      <h1>Candidate Dashboard</h1>
+      <h2>Candidate Dashboard</h2>
 
-      {profile?.score != null ? (
+      {profile.score != null ? (
         <>
-          <p><strong>Score:</strong> {profile.score}%</p>
+          <p>Score: {profile.score}%</p>
+
           <button onClick={() => router.push(`/p/${profile.user_id}`)}>
             View Profile
+          </button>
+
+          <button
+            onClick={() => window.open(`/p/${profile.user_id}`, '_blank')}
+            style={{ marginLeft: 10 }}
+          >
+            Share Profile
           </button>
         </>
       ) : (
