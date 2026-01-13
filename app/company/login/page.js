@@ -36,25 +36,42 @@ export default function CompanyLogin() {
       .single()
 
     // 3️⃣ AUTO-FIX missing or broken company profile
-    if (profileError || !profile || profile.role !== 'company') {
-      const { error: upsertError } = await supabase
-        .from('profiles')
-        .upsert(
-          {
-            user_id: user.id,
-            email: user.email,
-            role: 'company',
-            company_id: user.id,
-          },
-          { onConflict: ['user_id'] }
-        )
+   if (profileError || !profile || profile.role !== 'company') {
+  const { data: upsertData, error: upsertError } = await supabase
+    .from('profiles')
+    .upsert(
+      {
+        user_id: user.id,
+        email: user.email,
+        role: 'company',
+        company_id: user.id,
+      },
+      { onConflict: ['user_id'] }
+    )
+    .select()
+    .single()
 
-      if (upsertError) {
-        alert('Company profile could not be fixed. Please try again.')
-        await supabase.auth.signOut()
-        return
-      }
-    }
+  if (upsertError) {
+    console.error('❌ COMPANY PROFILE UPSERT ERROR:', {
+      message: upsertError.message,
+      details: upsertError.details,
+      hint: upsertError.hint,
+      code: upsertError.code,
+    })
+
+    alert(
+      `Company login failed.\n\n` +
+      `Reason: ${upsertError.message}\n` +
+      (upsertError.details ? `Details: ${upsertError.details}\n` : '') +
+      (upsertError.hint ? `Hint: ${upsertError.hint}` : '')
+    )
+
+    await supabase.auth.signOut()
+    return
+  }
+
+  console.log('✅ Company profile fixed/created:', upsertData)
+}
 
     // 4️⃣ SUCCESS
     router.push('/company/dashboard')
