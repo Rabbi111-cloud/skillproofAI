@@ -28,33 +28,22 @@ export default function CompanyDashboard() {
         return
       }
 
-      // Fetch user's profile to check if it's a company
+      // Fetch user's profile
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('company_name, company_id')
         .eq('user_id', user.id)
         .single()
 
-      // Deny access if no company_name OR if their email exists as a candidate
-      const { data: candidateCheck, error: candidateError } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .eq('email', user.email)
-        .is('company_id', null) // candidate account
-        .single()
-
-      if (
-        profileError ||
-        !profile?.company_name ||        // no company name
-        candidateCheck?.user_id          // email exists as candidate
-      ) {
-        alert('Access denied: Not a valid company account')
+      // ✅ Check if company_name exists
+      if (profileError || !profile?.company_name) {
+        alert('Access denied: Not a company account')
         await supabase.auth.signOut()
         router.push('/company/login')
         return
       }
 
-      // ✅ User is a valid company
+      // User is a valid company
       setUser({ ...user, company_id: profile.company_id, company_name: profile.company_name })
       setLoading(false)
     }
@@ -70,7 +59,7 @@ export default function CompanyDashboard() {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .is('company_id', null) // only candidates
+          .is('company_name', null) // only candidates (no company_name)
 
         if (error) throw error
         setCandidates(data || [])
@@ -98,14 +87,10 @@ export default function CompanyDashboard() {
   const paginatedCandidates = filteredCandidates.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   // 4️⃣ View Profile
-  const viewProfile = (candidateId) => {
-    router.push(`/p/${candidateId}`)
-  }
+  const viewProfile = (candidateId) => router.push(`/p/${candidateId}`)
 
   // 5️⃣ Download PDF
-  const downloadPDF = (candidateId) => {
-    window.open(`/p/${candidateId}`, '_blank')
-  }
+  const downloadPDF = (candidateId) => window.open(`/p/${candidateId}`, '_blank')
 
   return (
     <div style={{ padding: 30 }}>
@@ -134,7 +119,10 @@ export default function CompanyDashboard() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 20 }}>
           {paginatedCandidates.map(candidate => {
-            const level = candidate.score >= 80 ? 'Excellent' : candidate.score >= 60 ? 'Good' : candidate.score >= 40 ? 'Average' : 'Very Bad'
+            const level =
+              candidate.score >= 80 ? 'Excellent' :
+              candidate.score >= 60 ? 'Good' :
+              candidate.score >= 40 ? 'Average' : 'Very Bad'
 
             return (
               <div key={candidate.user_id} style={{ padding: 15, border: '1px solid #ccc', borderRadius: 8, boxShadow: '0 2px 5px rgba(0,0,0,0.1)', backgroundColor: '#fff' }}>
