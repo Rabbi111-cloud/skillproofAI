@@ -15,39 +15,32 @@ export default function CandidateDashboard() {
   useEffect(() => {
     async function loadDashboard() {
       try {
-        setError(null)
-
-        // 1️⃣ AUTH GUARD
-        const { data: authData, error: authError } =
-          await supabase.auth.getUser()
-
-        if (authError || !authData?.user) {
-          router.push('/login')
+        // 1️⃣ GET AUTH USER
+        const { data: authData } = await supabase.auth.getUser()
+        if (!authData?.user) {
+          router.replace('/login')
           return
         }
-
         const userId = authData.user.id
 
-        // 2️⃣ FETCH PROFILE
+        // 2️⃣ GET PROFILE
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('user_id', userId)
           .single()
 
-        if (profileError || !profileData) {
-          throw new Error('Profile not found')
-        }
+        if (profileError || !profileData) throw new Error('Profile not found')
 
-        // 🚫 BLOCK COMPANIES
-        if (profileData.role === 'company') {
-          router.push('/company/dashboard')
+        // 3️⃣ BLOCK COMPANY USERS
+        if (profileData.role !== 'candidate') {
+          router.replace('/company/dashboard')
           return
         }
 
         setProfile(profileData)
 
-        // 3️⃣ FETCH RESULT (SOURCE OF TRUTH)
+        // 4️⃣ FETCH ASSESSMENT RESULT
         const { data: resultData } = await supabase
           .from('results')
           .select('*')
@@ -57,8 +50,8 @@ export default function CandidateDashboard() {
         setResult(resultData || null)
 
       } catch (err) {
-        console.error('[DASHBOARD ERROR]', err)
-        setError(err.message || 'Dashboard failed')
+        console.error('[Candidate Dashboard Error]', err)
+        setError(err.message || 'Something went wrong')
       } finally {
         setLoading(false)
       }
@@ -67,41 +60,46 @@ export default function CandidateDashboard() {
     loadDashboard()
   }, [router])
 
-  if (loading) {
-    return <p style={{ padding: 30 }}>Loading dashboard…</p>
-  }
+  if (loading) return <p style={{ padding: 30 }}>Loading dashboard…</p>
 
   if (error) {
     return (
       <div style={{ padding: 30 }}>
         <h2>Error</h2>
         <p style={{ color: 'red' }}>{error}</p>
-        <button onClick={() => router.push('/login')}>
-          Go to Login
-        </button>
+        <button onClick={() => router.replace('/login')}>Login</button>
       </div>
     )
   }
 
   return (
-    <main style={{ padding: 40 }}>
+    <main style={{ padding: 30 }}>
       <h1>Candidate Dashboard</h1>
+      <p>Welcome, {profile.email}</p>
 
       {result ? (
         <>
-          <p>
-            <strong>Score:</strong> {result.score}%
-          </p>
+          <h2>Assessment Completed ✅</h2>
+          <p><strong>Score:</strong> {result.score}%</p>
+          <p><strong>Skill Breakdown:</strong></p>
+          <pre>{JSON.stringify(result.breakdown, null, 2)}</pre>
 
           <button onClick={() => router.push(`/p/${profile.user_id}`)}>
             View Profile
           </button>
 
           <button
-            onClick={() => window.open(`/p/${profile.user_id}`, '_blank')}
             style={{ marginLeft: 10 }}
+            onClick={() => window.open(`/p/${profile.user_id}`, '_blank')}
           >
             Share Profile
+          </button>
+
+          <button
+            style={{ marginLeft: 10 }}
+            onClick={() => router.replace('/dashboard')}
+          >
+            Back to Dashboard
           </button>
         </>
       ) : (
