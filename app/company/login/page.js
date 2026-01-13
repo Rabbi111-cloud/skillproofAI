@@ -8,38 +8,59 @@ export default function CompanyLogin() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  async function login() {
+  const handleLogin = async () => {
+    setLoading(true)
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email, password
-      })
-
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
+      if (!data.user) throw new Error('No user session')
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role')
         .eq('user_id', data.user.id)
         .single()
+      if (profileError || !profile) throw new Error('Profile not found')
 
-      if (!profile || profile.role !== 'company') {
-        await supabase.auth.signOut()
-        throw new Error('This account is not a company account')
-      }
+      if (profile.role !== 'company') throw new Error('Cannot login as company with this email')
 
-      router.replace('/company/dashboard')
+      router.push('/company/dashboard')
     } catch (err) {
       alert(err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <main>
+    <main style={{ padding: 40, maxWidth: 400, margin: '0 auto' }}>
       <h1>Company Login</h1>
-      <input onChange={e => setEmail(e.target.value)} />
-      <input type="password" onChange={e => setPassword(e.target.value)} />
-      <button onClick={login}>Login</button>
+
+      <input
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        style={{ width: '100%', padding: 10, marginBottom: 10 }}
+      />
+
+      <input
+        type="password"
+        placeholder="Password"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        style={{ width: '100%', padding: 10, marginBottom: 20 }}
+      />
+
+      <button
+        onClick={handleLogin}
+        disabled={loading}
+        style={{ width: '100%', padding: 12 }}
+      >
+        {loading ? 'Logging in...' : 'Login'}
+      </button>
     </main>
   )
 }
