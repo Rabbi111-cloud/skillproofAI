@@ -10,40 +10,54 @@ export default function CompanyLogin() {
   const router = useRouter()
 
   async function handleLogin() {
-    if (!email || !password) return alert('Email and password are required')
+    if (!email || !password) {
+      alert('Email and password are required')
+      return
+    }
 
-    try {
-      // 1️⃣ Sign in
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
-      if (error) throw error
+    // 1️⃣ Auth login
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
 
-      const userId = data.user.id
+    if (error || !data?.user) {
+      alert(error?.message || 'Login failed')
+      return
+    }
 
-      // 2️⃣ Fetch profile
-      const { data: profile, error: profError } = await supabase
+    const user = data.user
+
+    // 2️⃣ Try fetch profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
+
+    // 3️⃣ AUTO-FIX missing or broken company profile
+    if (profileError || !profile || profile.role !== 'company') {
+      const { error: upsertError } = await supabase
         .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .single()
+        .upsert(
+          {
+            user_id: user.id,
+            email: user.email,
+            role: 'company',
+            company_id: user.id,
+          },
+          { onConflict: ['user_id'] }
+        )
 
-      if (profError || !profile)
-        return alert('Profile not found. Please contact support.')
-
-      if (profile.role !== 'company') {
-        alert('Access denied: Not a company account')
+      if (upsertError) {
+        alert('Company profile could not be fixed. Please try again.')
         await supabase.auth.signOut()
         return
       }
-
-      // ✅ Redirect to company dashboard
-      router.push('/company/dashboard')
-    } catch (err) {
-      console.error(err)
-      alert('Login failed: ' + (err.message || JSON.stringify(err)))
     }
+
+    // 4️⃣ SUCCESS
+    router.push('/company/dashboard')
   }
 
   return (
@@ -57,6 +71,7 @@ export default function CompanyLogin() {
         onChange={e => setEmail(e.target.value)}
         style={{ display: 'block', margin: '10px 0', padding: 6 }}
       />
+
       <input
         type="password"
         placeholder="Password"
@@ -65,16 +80,9 @@ export default function CompanyLogin() {
         style={{ display: 'block', margin: '10px 0', padding: 6 }}
       />
 
-      <button
-        onClick={handleLogin}
-        style={{ padding: '6px 12px', marginTop: 10 }}
-      >
+      <button onClick={handleLogin} style={{ padding: '6px 12px' }}>
         Login
       </button>
-
-      <p style={{ marginTop: 20 }}>
-        Don't have an account? <a href="/company/signup">Signup here</a>
-      </p>
     </div>
   )
 }
