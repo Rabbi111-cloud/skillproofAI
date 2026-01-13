@@ -7,7 +7,7 @@ import { questions } from '../questions'
 
 export default function ResultPage() {
   const router = useRouter()
-  const ran = useRef(false) // 🔒 prevent double execution
+  const ran = useRef(false)
 
   const [status, setStatus] = useState('Calculating score...')
   const [skillsDisplay, setSkillsDisplay] = useState({})
@@ -22,7 +22,6 @@ export default function ResultPage() {
         // 1️⃣ Auth
         const { data } = await supabase.auth.getUser()
         const user = data?.user
-
         if (!user) {
           router.push('/login')
           return
@@ -37,10 +36,9 @@ export default function ResultPage() {
         const submissions = []
 
         questions.forEach(q => {
-          const userAnswer = rawAnswers[q.id]
-          if (!userAnswer) return
-
+          const userAnswer = rawAnswers[q.id] ?? '' // ✅ FIX
           const skill = q.skill || 'General'
+
           if (!skillStats[skill]) {
             skillStats[skill] = { correct: 0, total: 0 }
           }
@@ -48,9 +46,8 @@ export default function ResultPage() {
           skillStats[skill].total += 1
 
           const isCorrect =
-            q.correct &&
             userAnswer.trim().toLowerCase() ===
-              q.correct.trim().toLowerCase()
+            q.correct.trim().toLowerCase()
 
           if (isCorrect) {
             correctCount++
@@ -60,15 +57,9 @@ export default function ResultPage() {
           submissions.push({
             user_id: user.id,
             question_id: Number(q.id),
-            is_correct: !!isCorrect
+            is_correct: isCorrect
           })
         })
-
-        // 🚨 If user somehow reached result with no answers
-        if (submissions.length === 0) {
-          setStatus('No answers submitted.')
-          return
-        }
 
         // 3️⃣ Save submissions
         await supabase.from('submissions').insert(submissions)
@@ -85,7 +76,7 @@ export default function ResultPage() {
 
         // 5️⃣ Final score
         const score = Math.round(
-          (correctCount / submissions.length) * 100
+          (correctCount / questions.length) * 100
         )
 
         setTotalScore(score)
