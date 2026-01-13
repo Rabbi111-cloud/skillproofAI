@@ -97,6 +97,22 @@ export default function CompanyDashboard() {
           ))}
         </ul>
       )}
+
+      {/* ✅ LOGOUT BUTTON */}
+      <button
+        style={{
+          marginTop: 20,
+          padding: '10px 20px',
+          backgroundColor: '#f44336',
+          color: '#fff',
+          border: 'none',
+          borderRadius: 5,
+          cursor: 'pointer'
+        }}
+        onClick={() => router.push('/logout')}
+      >
+        Logout
+      </button>
     </main>
   )
 }
