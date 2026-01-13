@@ -7,113 +7,50 @@ import { useRouter } from 'next/navigation'
 export default function CompanyLogin() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
   const router = useRouter()
 
   async function handleLogin() {
-    if (!email || !password) {
-      alert('Email and password are required')
-      return
-    }
-
-    setLoading(true)
-
     try {
-      // 1️⃣ Auth login
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       })
+      if (error) throw error
 
-      if (error) {
-        alert(error.message)
-        return
-      }
+      const userId = data.user.id
 
-      const user = data.user
-      if (!user) {
-        alert('Authentication failed')
-        return
-      }
-
-      // 2️⃣ CHECK IF USER IS ALREADY A CANDIDATE
-      const { data: existingProfile, error: profileFetchError } =
-        await supabase
-          .from('profiles')
-          .select('role, score, skills')
-          .eq('user_id', user.id)
-          .single()
-
-      if (profileFetchError && profileFetchError.code !== 'PGRST116') {
-        alert('Profile check failed')
-        await supabase.auth.signOut()
-        return
-      }
-
-      // 🚫 BLOCK CANDIDATES
-      if (
-        existingProfile &&
-        (
-          existingProfile.role === 'candidate' ||
-          typeof existingProfile.score === 'number' ||
-          existingProfile.skills
-        )
-      ) {
-        alert(
-          'Access denied: Candidate accounts cannot log in as companies.'
-        )
-        await supabase.auth.signOut()
-        return
-      }
-
-      // 3️⃣ ENSURE COMPANY EXISTS
-      const { data: company } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('id', user.id)
+      // 1️⃣ Fetch profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, company_id')
+        .eq('user_id', userId)
         .single()
 
-      if (!company) {
-        const { error: createCompanyError } = await supabase
-          .from('companies')
-          .insert({
-            id: user.id,
-            email: user.email,
-            name: user.email.split('@')[0]
-          })
-
-        if (createCompanyError) {
-          alert(`Company creation failed: ${createCompanyError.message}`)
-          await supabase.auth.signOut()
-          return
-        }
+      if (profileError) {
+        throw new Error('Profile not found. Please contact support.')
       }
 
-      // 4️⃣ UPSERT COMPANY PROFILE
-      const { error: upsertError } = await supabase
-        .from('profiles')
-        .upsert(
-          {
-            user_id: user.id,
-            email: user.email,
-            role: 'company',
-            company_id: user.id
-          },
-          { onConflict: ['user_id'] }
-        )
-
-      if (upsertError) {
-        alert(`Profile setup failed: ${upsertError.message}`)
+      if (profile.role !== 'company' || !profile.company_id) {
         await supabase.auth.signOut()
-        return
+        throw new Error('Access denied: Not a company account')
       }
 
-      // 5️⃣ SUCCESS
+      // 2️⃣ Verify company exists
+      const { data: company, error: companyError } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('id', profile.company_id)
+        .single()
+
+      if (companyError || !company) {
+        await supabase.auth.signOut()
+        throw new Error('Company record missing. Please contact support.')
+      }
+
       router.push('/company/dashboard')
+
     } catch (err) {
-      alert(`Company login failed: ${err.message}`)
-    } finally {
-      setLoading(false)
+      alert(`Company login failed.\nReason: ${err.message}`)
     }
   }
 
@@ -122,11 +59,10 @@ export default function CompanyLogin() {
       <h1>Company Login</h1>
 
       <input
-        type="email"
         placeholder="Company Email"
         value={email}
         onChange={e => setEmail(e.target.value)}
-        style={{ display: 'block', margin: '10px 0', padding: 6 }}
+        style={{ display: 'block', margin: '10px 0', padding: 8 }}
       />
 
       <input
@@ -134,16 +70,10 @@ export default function CompanyLogin() {
         placeholder="Password"
         value={password}
         onChange={e => setPassword(e.target.value)}
-        style={{ display: 'block', margin: '10px 0', padding: 6 }}
+        style={{ display: 'block', margin: '10px 0', padding: 8 }}
       />
 
-      <button
-        onClick={handleLogin}
-        disabled={loading}
-        style={{ padding: '6px 12px', marginTop: 10 }}
-      >
-        {loading ? 'Logging in...' : 'Login'}
-      </button>
+      <button onClick={handleLogin}>Login</button>
     </div>
   )
 }
