@@ -1,36 +1,49 @@
 'use client'
 
-import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '../lib/supabaseClient'
 
 export default function Home() {
   const router = useRouter()
 
-  useEffect(() => {
-    async function redirect() {
-      const { data } = await supabase.auth.getUser()
+  return (
+    <main style={{ padding: 40, maxWidth: 500, margin: '0 auto', textAlign: 'center' }}>
+      <h1>Developer Assessment Platform</h1>
+      <p>Choose your role to get started:</p>
 
-      if (!data?.user) {
-        router.replace('/login')
-        return
-      }
+      <div style={{ marginTop: 30, display: 'flex', flexDirection: 'column', gap: 15 }}>
+        {/* Candidate Buttons */}
+        <button
+          style={{ padding: 12, fontSize: 16 }}
+          onClick={() => router.push('/signup')}
+        >
+          Candidate Signup
+        </button>
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('user_id', data.user.id)
-        .single()
+        <button
+          style={{ padding: 12, fontSize: 16 }}
+          onClick={() => router.push('/login')}
+        >
+          Candidate Login
+        </button>
 
-      if (profile?.role === 'company') {
-        router.replace('/company/dashboard')
-      } else {
-        router.replace('/dashboard')
-      }
-    }
+        {/* Divider */}
+        <hr style={{ margin: '20px 0' }} />
 
-    redirect()
-  }, [router])
+        {/* Company Buttons */}
+        <button
+          style={{ padding: 12, fontSize: 16 }}
+          onClick={() => router.push('/company/signup')}
+        >
+          Company Signup
+        </button>
 
-  return <p style={{ padding: 30 }}>Redirecting…</p>
+        <button
+          style={{ padding: 12, fontSize: 16 }}
+          onClick={() => router.push('/company/login')}
+        >
+          Company Login
+        </button>
+      </div>
+    </main>
+  )
 }
