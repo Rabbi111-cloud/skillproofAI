@@ -11,41 +11,44 @@ export default function ResultPage() {
   const [skills, setSkills] = useState({})
   const [score, setScore] = useState(0)
   const [userId, setUserId] = useState(null)
+  const [done, setDone] = useState(false)
 
   useEffect(() => {
     async function run() {
       try {
-        // 1️⃣ Get logged-in user
-        const { data: auth, error: authError } = await supabase.auth.getUser()
-        if (authError || !auth?.user) {
+        const { data: auth } = await supabase.auth.getUser()
+        if (!auth?.user) {
           router.push('/login')
           return
         }
+
         const user = auth.user
         setUserId(user.id)
 
-        // 2️⃣ Get answers from localStorage
         const answers = JSON.parse(localStorage.getItem('answers')) || {}
 
-        // 3️⃣ Calculate score and skills
-        let correctCount = 0
+        let correct = 0
         const skillStats = {}
 
         questions.forEach(q => {
-          const userAnswer = answers[q.id] || ''
-          const attempted = userAnswer.trim().length > 0
+          const answer = answers[q.id]
+          const attempted = typeof answer === 'string' && answer.trim().length > 0
 
-          if (!skillStats[q.skill]) skillStats[q.skill] = { total: 0, correct: 0 }
+          if (!skillStats[q.skill]) {
+            skillStats[q.skill] = { total: 0, correct: 0 }
+          }
+
           skillStats[q.skill].total += 1
 
-          // Only count as correct if user typed the correct answer exactly
-          if (attempted && userAnswer.toLowerCase().trim() === q.correct.toLowerCase().trim()) {
-            correctCount += 1
-            skillStats[q.skill].correct += 1
+          if (attempted && q.correct) {
+            if (answer.toLowerCase().trim() === q.correct.toLowerCase().trim()) {
+              correct += 1
+              skillStats[q.skill].correct += 1
+            }
           }
         })
 
-        const finalScore = Math.round((correctCount / questions.length) * 100)
+        const finalScore = Math.round((correct / questions.length) * 100)
 
         const skillPercentages = {}
         Object.entries(skillStats).forEach(([skill, stat]) => {
@@ -55,25 +58,23 @@ export default function ResultPage() {
         setScore(finalScore)
         setSkills(skillPercentages)
 
-        // 4️⃣ Save profile with skills JSON
-        const { data: profileData, error: profileError } = await supabase.from('profiles').upsert(
+        // ✅ Save profile safely
+        await supabase.from('profiles').upsert(
           {
             user_id: user.id,
             email: user.email,
             score: finalScore,
-            skills: skillPercentages // MUST be JSON
+            skills: skillPercentages
           },
           { onConflict: ['user_id'] }
-        ).select().single()
+        )
 
-        if (profileError) throw profileError
-
-        // 5️⃣ Clear answers and mark done
         localStorage.removeItem('answers')
         setStatus('Assessment complete!')
-      } catch (err) {
-        console.error('Result page error:', err)
-        setStatus(`Error calculating score: ${err.message || JSON.stringify(err)}`)
+        setDone(true)
+      } catch (e) {
+        setStatus('Error calculating score')
+        console.error(e)
       }
     }
 
@@ -85,20 +86,16 @@ export default function ResultPage() {
       <h2>Assessment Result</h2>
       <p>{status}</p>
 
-      {status === 'Assessment complete!' && (
+      {done && (
         <>
           <p><strong>Total Score:</strong> {score}%</p>
 
-          {Object.keys(skills).length > 0 && (
-            <>
-              <h3>Skill Breakdown</h3>
-              <ul>
-                {Object.entries(skills).map(([skill, percent]) => (
-                  <li key={skill}>{skill}: {percent}%</li>
-                ))}
-              </ul>
-            </>
-          )}
+          <h3>Skill Breakdown</h3>
+          <ul>
+            {Object.entries(skills).map(([skill, percent]) => (
+              <li key={skill}>{skill}: {percent}%</li>
+            ))}
+          </ul>
 
           <div style={{ marginTop: 20 }}>
             <button onClick={() => router.push(`/p/${userId}`)}>
@@ -110,6 +107,13 @@ export default function ResultPage() {
               style={{ marginLeft: 10 }}
             >
               Share Profile
+            </button>
+
+            <button
+              onClick={() => router.push('/dashboard')}
+              style={{ marginLeft: 10 }}
+            >
+              Back to Dashboard
             </button>
           </div>
         </>
