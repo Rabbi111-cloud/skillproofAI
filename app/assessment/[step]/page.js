@@ -1,16 +1,15 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { questions } from '../questions'
 
 const TOTAL_TIME = 30
 
-export default function StepPage() {
+export default function StepPage({ params }) {
   const router = useRouter()
-  const { step } = useParams()
+  const step = params.step
 
-  // ✅ Make step 1-based from URL, convert to 0-based index for array
   const [index, setIndex] = useState(Math.max(Number(step) - 1, 0))
   const [answer, setAnswer] = useState('')
   const [timeLeft, setTimeLeft] = useState(TOTAL_TIME)
@@ -18,12 +17,12 @@ export default function StepPage() {
 
   const question = questions[index]
 
-  // ✅ keep index synced with URL
+  // Keep index synced with URL
   useEffect(() => {
     setIndex(Math.max(Number(step) - 1, 0))
   }, [step])
 
-  // ✅ reset state per question
+  // Reset state per question
   useEffect(() => {
     if (!question) return
 
@@ -32,11 +31,12 @@ export default function StepPage() {
 
     const saved = JSON.parse(localStorage.getItem('answers')) || {}
     setAnswer(saved[question.id] || '')
-  }, [index])
+  }, [index, question])
 
-  // ✅ timer logic
+  // Timer logic
   useEffect(() => {
     if (moved.current) return
+    if (!question) return
 
     const timer = setInterval(() => {
       setTimeLeft(prev => {
@@ -50,9 +50,9 @@ export default function StepPage() {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [index])
+  }, [index, question])
 
-  // ✅ next question navigation (1-based URL)
+  // Next question navigation
   const nextQuestion = () => {
     if (moved.current) return
     moved.current = true
@@ -62,14 +62,19 @@ export default function StepPage() {
     localStorage.setItem('answers', JSON.stringify(stored))
 
     if (index < questions.length - 1) {
-      router.push(`/assessment/${index + 2}`) // ✅ next step is +1, 1-based
+      router.push(`/assessment/${index + 2}`) // next step (1-based)
     } else {
       router.push('/assessment/result')
     }
   }
 
   if (!question) {
-    return <p style={{ padding: 30 }}>Invalid question</p>
+    return (
+      <div style={{ padding: 30 }}>
+        <p>Invalid question or assessment complete.</p>
+        <button onClick={() => router.push('/dashboard')}>Go back</button>
+      </div>
+    )
   }
 
   return (
@@ -79,7 +84,6 @@ export default function StepPage() {
       </h2>
 
       <p><strong>Time left:</strong> {timeLeft}s</p>
-
       <p>{question.question}</p>
 
       <input
