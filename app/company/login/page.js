@@ -10,48 +10,55 @@ export default function CompanyLogin() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  async function handleLogin() {
-    if (!email || !password) {
-      return alert('Email and password are required')
-    }
-
+  const handleLogin = async () => {
+    if (!email || !password) return alert('Please fill in email and password')
     setLoading(true)
-    try {
-      // 1️⃣ Sign in
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
 
-      if (error) throw error
-      if (!data.user) throw new Error('Login failed')
+    try {
+      // 1️⃣ Sign in with Supabase Auth
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+      if (loginError) {
+        alert(`Login failed: ${loginError.message}`)
+        setLoading(false)
+        return
+      }
 
       const user = data.user
+      if (!user) {
+        alert('Login failed: No user returned')
+        setLoading(false)
+        return
+      }
 
       // 2️⃣ Fetch profile
-      const { data: profile, error: profError } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role, company_id')
-        .eq('id', user.id)
+        .select('*')
+        .eq('user_id', user.id)
         .single()
 
-      if (profError || !profile) {
-        throw new Error('Profile not found. Please contact support.')
+      if (profileError || !profile) {
+        alert('Profile not found. Please contact support.')
+        setLoading(false)
+        return
       }
 
-      // 3️⃣ Ensure it is a company account
+      // 3️⃣ Verify company role
       if (profile.role !== 'company' || !profile.company_id) {
+        alert('Access denied: Not a company account')
         await supabase.auth.signOut()
-        throw new Error('Access denied: Not a company account')
+        setLoading(false)
+        return
       }
 
-      // 4️⃣ Redirect to company dashboard
+      // ✅ Success — go to dashboard
       router.push('/company/dashboard')
     } catch (err) {
-      console.error('Company login failed:', err)
-      alert(
-        `Company login failed. Reason: ${err.message || JSON.stringify(err)}`
-      )
+      console.error('Company login error:', err)
+      alert('Company login failed. Reason: ' + (err.message || JSON.stringify(err)))
     } finally {
       setLoading(false)
     }
@@ -68,6 +75,7 @@ export default function CompanyLogin() {
         onChange={e => setEmail(e.target.value)}
         style={{ display: 'block', margin: '10px 0', padding: 6 }}
       />
+
       <input
         type="password"
         placeholder="Password"
@@ -85,8 +93,7 @@ export default function CompanyLogin() {
       </button>
 
       <p style={{ marginTop: 20 }}>
-        Don't have an account?{' '}
-        <a href="/company/signup">Signup here</a>
+        Don't have an account? <a href="/company/signup">Signup here</a>
       </p>
     </div>
   )
