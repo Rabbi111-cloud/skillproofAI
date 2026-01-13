@@ -11,34 +11,28 @@ export default function CompanySignup() {
   const router = useRouter()
 
   async function handleSignup() {
-    if (!email || !password || !companyName) return alert('All fields are required')
-
-    // 1️⃣ Sign up in Supabase Auth
-    const { data, error } = await supabase.auth.signUp({ email, password })
-    if (error) return alert(error.message)
-
-    const userId = data.user.id
+    if (!email || !password || !companyName)
+      return alert('All fields are required')
 
     try {
-      // 2️⃣ Insert into companies table
-      const { error: compError } = await supabase.from('companies').insert({
-        id: userId,
-        name: companyName,
-        email
-      })
-      if (compError) throw compError
+      // 1️⃣ Sign up in Supabase Auth
+      const { data, error } = await supabase.auth.signUp({ email, password })
+      if (error) throw error
 
-      // 3️⃣ Insert into profiles table with company_name
-      const { error: profError } = await supabase.from('profiles').insert({
+      const userId = data.user.id
+
+      // 2️⃣ Insert company profile
+      const { error: profileError } = await supabase.from('profiles').insert({
         user_id: userId,
         email,
         role: 'company',
-        company_id: userId,
-        company_name: companyName // <- MUST ADD
+        company_id: userId, // company ID references itself
+        company_name: companyName
       })
-      if (profError) throw profError
 
-      alert('Company registered! Please login now.')
+      if (profileError) throw profileError
+
+      alert('Company registered successfully! Please login now.')
       router.push('/company/login')
     } catch (err) {
       console.error(err)
@@ -72,7 +66,10 @@ export default function CompanySignup() {
         style={{ display: 'block', margin: '10px 0', padding: 6 }}
       />
 
-      <button onClick={handleSignup} style={{ padding: '6px 12px', marginTop: 10 }}>
+      <button
+        onClick={handleSignup}
+        style={{ padding: '6px 12px', marginTop: 10 }}
+      >
         Signup
       </button>
 
