@@ -14,33 +14,45 @@ export default function CompanyLogin() {
 
     try {
       // 1️⃣ Sign in with Supabase Auth
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) return alert(error.message)
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      if (authError) return alert(authError.message)
 
-      const userId = data.user.id
+      const userId = authData.user.id
 
-      // 2️⃣ Fetch profile from 'profiles' table
-      const { data: profile, error: profError } = await supabase
+      // 2️⃣ Try to fetch profile
+      let { data: profile, error: profError } = await supabase
         .from('profiles')
         .select('role, company_name')
         .eq('user_id', userId)
         .single()
 
+      // 3️⃣ If profile does NOT exist, create it (legacy accounts)
       if (profError || !profile) {
-        alert('Profile not found. Please contact support.')
-        await supabase.auth.signOut()
-        router.push('/company/login')
-        return
+        const { data: newProfile, error: insertError } = await supabase.from('profiles').insert({
+          user_id: userId,
+          email,
+          role: 'company',
+          company_name: null
+        }).select().single()
+
+        if (insertError) {
+          console.error('Failed to create legacy profile:', insertError)
+          alert('Profile not found and could not be created. Please contact support.')
+          await supabase.auth.signOut()
+          return
+        }
+
+        profile = newProfile
       }
 
-      // 3️⃣ Check if user is a company account
+      // 4️⃣ Check role
       if (profile.role !== 'company') {
         alert('Access denied: Not a company account')
         await supabase.auth.signOut()
         return
       }
 
-      // ✅ Old accounts might not have company_name, we allow login
+      // ✅ Login successful
       router.push('/company/dashboard')
 
     } catch (err) {
