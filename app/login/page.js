@@ -2,9 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../lib/supabaseClient'
 
-export default function CompanyLogin() {
+export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -14,39 +14,29 @@ export default function CompanyLogin() {
     setLoading(true)
 
     try {
-      console.log('[LOGIN] Attempt')
-
-      /* AUTH */
       const { data, error } =
         await supabase.auth.signInWithPassword({ email, password })
 
-      if (error) {
-        console.error('[AUTH ERROR]', error)
-        throw error
-      }
+      if (error) throw error
+      if (!data?.user) throw new Error('No user session')
 
-      const user = data.user
-      if (!user) throw new Error('No auth user returned')
-
-      /* VERIFY COMPANY */
-      const { data: company, error: companyError } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('user_id', user.id)
+      // Fetch profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', data.user.id)
         .single()
 
-      if (companyError) {
-        console.error('[COMPANY FETCH ERROR]', companyError)
-        throw new Error('Not a company account')
+      if (profileError) throw profileError
+
+      if (profile.role === 'company') {
+        router.push('/company/dashboard')
+      } else {
+        router.push('/dashboard')
       }
-
-      console.log('[LOGIN SUCCESS]')
-      router.push('/company/dashboard')
-
     } catch (err) {
-      console.error('[LOGIN FAILED]', err)
+      console.error('[LOGIN ERROR]', err)
       alert(err.message)
-      await supabase.auth.signOut()
     } finally {
       setLoading(false)
     }
@@ -54,7 +44,7 @@ export default function CompanyLogin() {
 
   return (
     <div style={{ padding: 30 }}>
-      <h1>Company Login</h1>
+      <h1>Login</h1>
 
       <input value={email} onChange={e => setEmail(e.target.value)} />
       <input type="password" value={password}
