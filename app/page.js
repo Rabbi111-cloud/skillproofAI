@@ -7,59 +7,76 @@ import { useRouter } from 'next/navigation'
 export default function Home() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  // ✅ USER SIGNUP (developers only)
-  async function signUp() {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password
-    })
-
-    if (error) return alert(error.message)
-
-    const { error: profileError } = await supabase
-      .from('profiles')
-      .insert({
-        user_id: data.user.id, // ✅ correct column
+  // 🔐 LOGIN (auto-detect role)
+  async function signIn() {
+    setLoading(true)
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        role: 'user'           // ✅ always user here
+        password
       })
 
-    if (profileError) return alert(profileError.message)
+      if (error) throw error
+      if (!data.user) throw new Error('No user returned from login')
 
-    router.push('/dashboard')
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', data.user.id)
+        .single()
+
+      if (profileError || !profile) {
+        throw new Error('Profile not found')
+      }
+
+      if (profile.role === 'company') {
+        router.push('/company/dashboard')
+      } else {
+        router.push('/dashboard')
+      }
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  // ✅ LOGIN (auto-detect role)
-  async function signIn() {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
+  // 👨‍💻 DEVELOPER SIGNUP ONLY
+  async function signUp() {
+    setLoading(true)
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password
+      })
 
-    if (error) return alert(error.message)
+      if (error) throw error
+      if (!data.user) throw new Error('Signup failed')
 
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('user_id', data.user.id) // ✅ correct column
-      .single()
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          user_id: data.user.id,
+          email,
+          role: 'user'
+        })
 
-    if (profileError || !profile) {
-      return alert('Profile not found. Please contact support.')
-    }
+      if (profileError) throw profileError
 
-    if (profile.role === 'company') {
-      router.push('/company/dashboard')
-    } else {
       router.push('/dashboard')
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
-    <main style={{ padding: 40, maxWidth: 400 }}>
-      <h1>Developer Assessment</h1>
+    <main style={{ padding: 40, maxWidth: 420 }}>
+      <h1>Developer Assessment Platform</h1>
 
       <input
         placeholder="Email"
@@ -76,18 +93,34 @@ export default function Home() {
         style={{ width: '100%', padding: 10, marginBottom: 20 }}
       />
 
-      <button onClick={signIn} style={{ width: '100%', padding: 10, marginBottom: 10 }}>
-        Login
+      <button
+        onClick={signIn}
+        disabled={loading}
+        style={{ width: '100%', padding: 10, marginBottom: 10 }}
+      >
+        {loading ? 'Logging in...' : 'Login'}
       </button>
 
-      <button onClick={signUp} style={{ width: '100%', padding: 10 }}>
+      <button
+        onClick={signUp}
+        disabled={loading}
+        style={{ width: '100%', padding: 10 }}
+      >
         Sign up as Developer
       </button>
 
-      <p style={{ marginTop: 20 }}>
-        Are you a company?{' '}
-        <a href="/company/signup">Create a company account</a>
-      </p>
+      {/* ✅ COMPANY ENTRY POINT */}
+      <div style={{ marginTop: 30 }}>
+        <p>
+          Are you a company?{' '}
+          <a href="/company/signup">Create a company account</a>
+        </p>
+
+        <p style={{ marginTop: 8 }}>
+          Already registered?{' '}
+          <a href="/company/login">Company Login</a>
+        </p>
+      </div>
     </main>
   )
 }
