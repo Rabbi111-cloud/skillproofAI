@@ -1,4 +1,4 @@
-'use client'
+use client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -13,7 +13,7 @@ export default function CandidateSignup() {
   const handleSignup = async () => {
     setLoading(true)
     try {
-      // Check if email exists in profiles
+      // Check if email exists already
       const { data: existingProfile } = await supabase
         .from('profiles')
         .select('role')
@@ -29,10 +29,12 @@ export default function CandidateSignup() {
         return
       }
 
+      // Signup in Supabase Auth
       const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) throw error
       if (!data.user) throw new Error('Signup failed')
 
+      // Insert profile
       await supabase.from('profiles').insert({
         user_id: data.user.id,
         email,
