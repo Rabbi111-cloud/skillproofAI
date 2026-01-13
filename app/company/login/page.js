@@ -13,48 +13,33 @@ export default function CompanyLogin() {
     if (!email || !password) return alert('Email and password are required')
 
     try {
-      // 1️⃣ Sign in with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password })
-      if (authError) return alert(authError.message)
+      // 1️⃣ Sign in
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+      if (error) throw error
 
-      const userId = authData.user.id
+      const userId = data.user.id
 
-      // 2️⃣ Try to fetch profile
-      let { data: profile, error: profError } = await supabase
+      // 2️⃣ Fetch profile
+      const { data: profile, error: profError } = await supabase
         .from('profiles')
-        .select('role, company_name')
+        .select('*')
         .eq('user_id', userId)
         .single()
 
-      // 3️⃣ If profile does NOT exist, create it (legacy accounts)
-      if (profError || !profile) {
-        const { data: newProfile, error: insertError } = await supabase.from('profiles').insert({
-          user_id: userId,
-          email,
-          role: 'company',
-          company_name: null
-        }).select().single()
+      if (profError || !profile)
+        return alert('Profile not found. Please contact support.')
 
-        if (insertError) {
-          console.error('Failed to create legacy profile:', insertError)
-          alert('Profile not found and could not be created. Please contact support.')
-          await supabase.auth.signOut()
-          return
-        }
-
-        profile = newProfile
-      }
-
-      // 4️⃣ Check role
       if (profile.role !== 'company') {
         alert('Access denied: Not a company account')
         await supabase.auth.signOut()
         return
       }
 
-      // ✅ Login successful
+      // ✅ Redirect to company dashboard
       router.push('/company/dashboard')
-
     } catch (err) {
       console.error(err)
       alert('Login failed: ' + (err.message || JSON.stringify(err)))
@@ -80,7 +65,10 @@ export default function CompanyLogin() {
         style={{ display: 'block', margin: '10px 0', padding: 6 }}
       />
 
-      <button onClick={handleLogin} style={{ padding: '6px 12px', marginTop: 10 }}>
+      <button
+        onClick={handleLogin}
+        style={{ padding: '6px 12px', marginTop: 10 }}
+      >
         Login
       </button>
 
