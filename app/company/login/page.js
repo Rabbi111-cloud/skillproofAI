@@ -26,20 +26,48 @@ export default function CompanyLogin() {
       })
 
       if (error) {
-        alert(`Login failed: ${error.message}`)
-        setLoading(false)
+        alert(error.message)
         return
       }
 
       const user = data.user
       if (!user) {
         alert('Authentication failed')
-        setLoading(false)
         return
       }
 
-      // 2️⃣ Ensure COMPANY exists first (FIXES FK ERROR)
-      const { data: company, error: companyError } = await supabase
+      // 2️⃣ CHECK IF USER IS ALREADY A CANDIDATE
+      const { data: existingProfile, error: profileFetchError } =
+        await supabase
+          .from('profiles')
+          .select('role, score, skills')
+          .eq('user_id', user.id)
+          .single()
+
+      if (profileFetchError && profileFetchError.code !== 'PGRST116') {
+        alert('Profile check failed')
+        await supabase.auth.signOut()
+        return
+      }
+
+      // 🚫 BLOCK CANDIDATES
+      if (
+        existingProfile &&
+        (
+          existingProfile.role === 'candidate' ||
+          typeof existingProfile.score === 'number' ||
+          existingProfile.skills
+        )
+      ) {
+        alert(
+          'Access denied: Candidate accounts cannot log in as companies.'
+        )
+        await supabase.auth.signOut()
+        return
+      }
+
+      // 3️⃣ ENSURE COMPANY EXISTS
+      const { data: company } = await supabase
         .from('companies')
         .select('id')
         .eq('id', user.id)
@@ -51,21 +79,18 @@ export default function CompanyLogin() {
           .insert({
             id: user.id,
             email: user.email,
-            name: user.email.split('@')[0] // safe fallback
+            name: user.email.split('@')[0]
           })
 
         if (createCompanyError) {
-          alert(
-            `Company creation failed:\n${createCompanyError.message}`
-          )
+          alert(`Company creation failed: ${createCompanyError.message}`)
           await supabase.auth.signOut()
-          setLoading(false)
           return
         }
       }
 
-      // 3️⃣ Ensure PROFILE exists & is company
-      const { error: profileError } = await supabase
+      // 4️⃣ UPSERT COMPANY PROFILE
+      const { error: upsertError } = await supabase
         .from('profiles')
         .upsert(
           {
@@ -77,21 +102,16 @@ export default function CompanyLogin() {
           { onConflict: ['user_id'] }
         )
 
-      if (profileError) {
-        alert(
-          `Profile setup failed:\n${profileError.message}`
-        )
+      if (upsertError) {
+        alert(`Profile setup failed: ${upsertError.message}`)
         await supabase.auth.signOut()
-        setLoading(false)
         return
       }
 
-      // 4️⃣ Redirect to dashboard
+      // 5️⃣ SUCCESS
       router.push('/company/dashboard')
     } catch (err) {
-      alert(
-        `Company login failed.\nReason: ${err.message || JSON.stringify(err)}`
-      )
+      alert(`Company login failed: ${err.message}`)
     } finally {
       setLoading(false)
     }
@@ -124,10 +144,6 @@ export default function CompanyLogin() {
       >
         {loading ? 'Logging in...' : 'Login'}
       </button>
-
-      <p style={{ marginTop: 20 }}>
-        Don&apos;t have an account? <a href="/company/signup">Signup here</a>
-      </p>
     </div>
   )
 }
