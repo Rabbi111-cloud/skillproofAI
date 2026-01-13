@@ -13,12 +13,34 @@ export default function CandidateSignup() {
   const handleSignup = async () => {
     setLoading(true)
     try {
-      // 1️⃣ Signup in Supabase
+      // 1️⃣ Check if email already exists
+      const { data: existingUser } = await supabase.auth.getUserByEmail(email)
+
+      if (existingUser?.user) {
+        // Check profile role
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('user_id', existingUser.user.id)
+          .single()
+
+        if (profile?.role === 'candidate') {
+          alert('This email is already registered as candidate. Please login.')
+          router.push('/login')
+          return
+        } else if (profile?.role === 'company') {
+          throw new Error('This email is already registered as a company. Use company login.')
+        } else {
+          throw new Error('This email exists but profile is invalid. Contact support.')
+        }
+      }
+
+      // 2️⃣ Signup new user
       const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) throw error
       if (!data.user) throw new Error('Signup failed')
 
-      // 2️⃣ Insert profile with role = candidate
+      // 3️⃣ Insert candidate profile
       const { error: profileError } = await supabase.from('profiles').insert({
         user_id: data.user.id,
         email,
@@ -26,7 +48,6 @@ export default function CandidateSignup() {
       })
       if (profileError) throw profileError
 
-      // 3️⃣ Redirect to candidate dashboard
       router.push('/dashboard')
     } catch (err) {
       alert(err.message)
@@ -38,7 +59,6 @@ export default function CandidateSignup() {
   return (
     <main style={{ padding: 40, maxWidth: 400, margin: '0 auto' }}>
       <h1>Candidate Signup</h1>
-
       <input
         type="email"
         placeholder="Email"
@@ -46,7 +66,6 @@ export default function CandidateSignup() {
         onChange={e => setEmail(e.target.value)}
         style={{ width: '100%', padding: 10, marginBottom: 10 }}
       />
-
       <input
         type="password"
         placeholder="Password"
@@ -54,7 +73,6 @@ export default function CandidateSignup() {
         onChange={e => setPassword(e.target.value)}
         style={{ width: '100%', padding: 10, marginBottom: 20 }}
       />
-
       <button
         onClick={handleSignup}
         disabled={loading}
