@@ -23,9 +23,9 @@ export default function CandidateLogin() {
         .select('role')
         .eq('user_id', data.user.id)
         .single()
-      if (profileError || !profile) throw new Error('Profile not found')
+      if (profileError) throw profileError
 
-      if (profile.role !== 'candidate') throw new Error('Cannot login as candidate with this email')
+      if (profile.role !== 'candidate') throw new Error('This email is registered for another role')
 
       router.push('/dashboard')
     } catch (err) {
@@ -38,7 +38,6 @@ export default function CandidateLogin() {
   return (
     <main style={{ padding: 40, maxWidth: 400, margin: '0 auto' }}>
       <h1>Candidate Login</h1>
-
       <input
         type="email"
         placeholder="Email"
@@ -46,7 +45,6 @@ export default function CandidateLogin() {
         onChange={e => setEmail(e.target.value)}
         style={{ width: '100%', padding: 10, marginBottom: 10 }}
       />
-
       <input
         type="password"
         placeholder="Password"
@@ -54,7 +52,6 @@ export default function CandidateLogin() {
         onChange={e => setPassword(e.target.value)}
         style={{ width: '100%', padding: 10, marginBottom: 20 }}
       />
-
       <button
         onClick={handleLogin}
         disabled={loading}
