@@ -17,15 +17,15 @@ export default function CandidateLogin() {
       if (error) throw error
       if (!data.user) throw new Error('No user session')
 
-      // Fetch profile
-      const { data: profile, error: profileError } = await supabase
+      // ✅ Check profile role
+      const { data: profile } = await supabase
         .from('profiles')
         .select('role')
-        .eq('user_id', data.user.id)
-        .single()
-      if (profileError) throw profileError
+        .eq('email', email)
+        .maybeSingle()
 
-      if (profile.role !== 'candidate') throw new Error('This email is registered for another role')
+      if (!profile) throw new Error('Profile not found. Please signup.')
+      if (profile.role !== 'candidate') throw new Error('This email is registered for another role.')
 
       router.push('/dashboard')
     } catch (err) {
