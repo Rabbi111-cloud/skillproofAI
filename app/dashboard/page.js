@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 
-export default function CompanyDashboard() {
+export default function CandidateDashboard() {
   const router = useRouter()
-  const [company, setCompany] = useState(null)
+  const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -16,17 +16,22 @@ export default function CompanyDashboard() {
         if (!auth?.user) throw new Error('Not authenticated')
 
         const { data, error } = await supabase
-          .from('companies')
+          .from('profiles')
           .select('*')
           .eq('user_id', auth.user.id)
           .single()
 
         if (error) throw error
 
-        setCompany(data)
+        if (data.role === 'company') {
+          router.push('/company/dashboard')
+          return
+        }
+
+        setProfile(data)
       } catch (err) {
         console.error('[DASHBOARD ERROR]', err)
-        router.push('/company/login')
+        router.push('/login')
       } finally {
         setLoading(false)
       }
@@ -39,14 +44,20 @@ export default function CompanyDashboard() {
 
   return (
     <main style={{ padding: 30 }}>
-      <h1>{company.name}</h1>
-      <p>{company.email}</p>
+      <h1>Candidate Dashboard</h1>
 
-      <hr />
-
-      <button onClick={() => router.push('/company/candidates')}>
-        View Candidates
-      </button>
+      {profile?.score != null ? (
+        <>
+          <p><strong>Score:</strong> {profile.score}%</p>
+          <button onClick={() => router.push(`/p/${profile.user_id}`)}>
+            View Profile
+          </button>
+        </>
+      ) : (
+        <button onClick={() => router.push('/assessment/1')}>
+          Take Assessment
+        </button>
+      )}
     </main>
   )
 }
