@@ -6,44 +6,40 @@ export default function Home() {
   const router = useRouter()
 
   return (
-    <main style={{ padding: 40, maxWidth: 500, margin: '0 auto', textAlign: 'center' }}>
+    <main style={{ padding: 40, maxWidth: 500, margin: '0 auto' }}>
       <h1>Developer Assessment Platform</h1>
-      <p>Choose your role to get started:</p>
 
-      <div style={{ marginTop: 30, display: 'flex', flexDirection: 'column', gap: 15 }}>
-        {/* Candidate Buttons */}
+      <section style={{ marginTop: 30 }}>
+        <h2>Candidate</h2>
         <button
-          style={{ padding: 12, fontSize: 16 }}
           onClick={() => router.push('/signup')}
+          style={{ padding: 12, width: '100%', marginBottom: 10 }}
         >
           Candidate Signup
         </button>
-
         <button
-          style={{ padding: 12, fontSize: 16 }}
           onClick={() => router.push('/login')}
+          style={{ padding: 12, width: '100%' }}
         >
           Candidate Login
         </button>
+      </section>
 
-        {/* Divider */}
-        <hr style={{ margin: '20px 0' }} />
-
-        {/* Company Buttons */}
+      <section style={{ marginTop: 50 }}>
+        <h2>Company</h2>
         <button
-          style={{ padding: 12, fontSize: 16 }}
           onClick={() => router.push('/company/signup')}
+          style={{ padding: 12, width: '100%', marginBottom: 10 }}
         >
           Company Signup
         </button>
-
         <button
-          style={{ padding: 12, fontSize: 16 }}
           onClick={() => router.push('/company/login')}
+          style={{ padding: 12, width: '100%' }}
         >
           Company Login
         </button>
-      </div>
+      </section>
     </main>
   )
 }
