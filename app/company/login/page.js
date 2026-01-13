@@ -17,14 +17,14 @@ export default function CompanyLogin() {
       if (error) throw error
       if (!data.user) throw new Error('No user session')
 
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
         .select('role')
-        .eq('user_id', data.user.id)
-        .single()
-      if (profileError) throw profileError
+        .eq('email', email)
+        .maybeSingle()
 
-      if (profile.role !== 'company') throw new Error('This email is registered for another role')
+      if (!profile) throw new Error('Profile not found. Please signup.')
+      if (profile.role !== 'company') throw new Error('This email is registered for another role.')
 
       router.push('/company/dashboard')
     } catch (err) {
