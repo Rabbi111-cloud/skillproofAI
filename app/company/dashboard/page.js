@@ -1,52 +1,102 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '../../../lib/supabaseClient'
 import { useRouter } from 'next/navigation'
+import { supabase } from '../../../lib/supabaseClient'
 
 export default function CompanyDashboard() {
   const router = useRouter()
-  const [company, setCompany] = useState(null)
+
+  const [profile, setProfile] = useState(null)
+  const [candidates, setCandidates] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    async function load() {
+    async function loadDashboard() {
       try {
-        const { data: auth } = await supabase.auth.getUser()
-        if (!auth?.user) throw new Error('Not authenticated')
+        // 1️⃣ GET AUTH USER
+        const { data: authData } = await supabase.auth.getUser()
+        if (!authData?.user) {
+          router.replace('/company/login')
+          return
+        }
+        const userId = authData.user.id
 
-        const { data, error } = await supabase
-          .from('companies')
+        // 2️⃣ GET PROFILE
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
           .select('*')
-          .eq('user_id', auth.user.id)
+          .eq('user_id', userId)
           .single()
 
-        if (error) throw error
+        if (profileError || !profileData) throw new Error('Profile not found')
 
-        setCompany(data)
+        // 3️⃣ BLOCK CANDIDATES
+        if (profileData.role !== 'company') {
+          router.replace('/dashboard')
+          return
+        }
+
+        setProfile(profileData)
+
+        // 4️⃣ FETCH ALL CANDIDATE PROFILES
+        const { data: candidatesData, error: candidatesError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('role', 'candidate')
+
+        if (candidatesError) throw candidatesError
+        setCandidates(candidatesData || [])
+
       } catch (err) {
-        console.error('[DASHBOARD ERROR]', err)
-        router.push('/company/login')
+        console.error('[Company Dashboard Error]', err)
+        setError(err.message || 'Something went wrong')
       } finally {
         setLoading(false)
       }
     }
 
-    load()
+    loadDashboard()
   }, [router])
 
-  if (loading) return <p>Loading...</p>
+  if (loading) return <p style={{ padding: 30 }}>Loading dashboard…</p>
+
+  if (error) {
+    return (
+      <div style={{ padding: 30 }}>
+        <h2>Error</h2>
+        <p style={{ color: 'red' }}>{error}</p>
+        <button onClick={() => router.replace('/company/login')}>
+          Login
+        </button>
+      </div>
+    )
+  }
 
   return (
     <main style={{ padding: 30 }}>
-      <h1>{company.name}</h1>
-      <p>{company.email}</p>
+      <h1>Company Dashboard</h1>
+      <p>Welcome, {profile.email}</p>
 
-      <hr />
-
-      <button onClick={() => router.push('/company/candidates')}>
-        View Candidates
-      </button>
+      <h2>All Candidates</h2>
+      {candidates.length === 0 ? (
+        <p>No candidates registered yet.</p>
+      ) : (
+        <ul>
+          {candidates.map(c => (
+            <li key={c.user_id} style={{ marginBottom: 10 }}>
+              <strong>{c.email}</strong>
+              <button
+                style={{ marginLeft: 10 }}
+                onClick={() => router.push(`/p/${c.user_id}`)}
+              >
+                View Profile
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </main>
   )
 }
