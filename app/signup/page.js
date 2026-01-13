@@ -13,34 +13,28 @@ export default function CandidateSignup() {
   const handleSignup = async () => {
     setLoading(true)
     try {
-      // 1️⃣ Try signup
-      const { data, error } = await supabase.auth.signUp({ email, password })
+      // Check if email already exists in profiles
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('email', email)
+        .maybeSingle()
 
-      if (error && error.message.includes('User already registered')) {
-        // User exists → check profile table
-        const { data: existingProfile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('email', email)
-          .maybeSingle()
-
-        if (existingProfile) {
-          if (existingProfile.role === 'candidate') {
-            alert('Email already registered as candidate. Please login.')
-            router.push('/login')
-            return
-          } else {
-            throw new Error('Email already registered as company. Use company login.')
-          }
+      if (existingProfile) {
+        if (existingProfile.role === 'candidate') {
+          alert('This email is already registered as a candidate. Please login.')
         } else {
-          throw new Error('Email exists but profile missing. Contact support.')
+          alert('This email is registered as a company. Use company signup/login.')
         }
+        return
       }
 
+      // Create user in Supabase Auth
+      const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) throw error
       if (!data.user) throw new Error('Signup failed')
 
-      // 2️⃣ Insert profile
+      // Insert profile
       const { error: profileError } = await supabase.from('profiles').insert({
         user_id: data.user.id,
         email,
@@ -48,7 +42,8 @@ export default function CandidateSignup() {
       })
       if (profileError) throw profileError
 
-      router.push('/dashboard')
+      alert('Signup successful! Please login.')
+      router.push('/login')
     } catch (err) {
       alert(err.message)
     } finally {
