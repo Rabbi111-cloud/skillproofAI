@@ -20,34 +20,27 @@ export default function CompanyDashboard() {
   useEffect(() => {
     async function checkUser() {
       setLoading(true)
-
-      // Get logged-in user
       const { data: { user }, error } = await supabase.auth.getUser()
       if (error || !user) {
         router.push('/company/login')
         return
       }
 
-      // Fetch user's profile
+      // Fetch company profile
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('company_name, company_id')
+        .select('*')
         .eq('user_id', user.id)
         .single()
 
-      // ✅ Check if company_name exists
-      if (profileError || !profile?.company_name) {
-        alert('Access denied: Not a company account')
+      if (profileError || !profile || profile.role !== 'company') {
         await supabase.auth.signOut()
         router.push('/company/login')
         return
       }
 
-      // User is a valid company
-      setUser({ ...user, company_id: profile.company_id, company_name: profile.company_name })
-      setLoading(false)
+      setUser({ ...user, company_id: profile.company_id })
     }
-
     checkUser()
   }, [router])
 
@@ -59,7 +52,8 @@ export default function CompanyDashboard() {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .is('company_name', null) // only candidates (no company_name)
+          .is('company_id', null) // only candidates
+          .not('role', 'eq', 'company') // exclude company accounts
 
         if (error) throw error
         setCandidates(data || [])
@@ -79,25 +73,37 @@ export default function CompanyDashboard() {
 
   // 3️⃣ Filtering & Pagination
   const filteredCandidates = candidates
-    .filter(c => !searchEmail || c.email.toLowerCase().includes(searchEmail.toLowerCase()))
+    .filter(c =>
+      !searchEmail || c.email.toLowerCase().includes(searchEmail.toLowerCase())
+    )
     .filter(c => !minScore || c.score >= parseInt(minScore))
     .sort((a, b) => b.score - a.score)
 
   const totalPages = Math.ceil(filteredCandidates.length / PAGE_SIZE)
-  const paginatedCandidates = filteredCandidates.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const paginatedCandidates = filteredCandidates.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE
+  )
 
   // 4️⃣ View Profile
-  const viewProfile = (candidateId) => router.push(`/p/${candidateId}`)
+  const viewProfile = candidateId => router.push(`/p/${candidateId}`)
 
   // 5️⃣ Download PDF
-  const downloadPDF = (candidateId) => window.open(`/p/${candidateId}`, '_blank')
+  const downloadPDF = candidateId => window.open(`/p/${candidateId}`, '_blank')
 
   return (
     <div style={{ padding: 30 }}>
       <h1>Company Dashboard</h1>
 
       {/* Search & Filter */}
-      <div style={{ margin: '20px 0', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+      <div
+        style={{
+          margin: '20px 0',
+          display: 'flex',
+          gap: '10px',
+          flexWrap: 'wrap'
+        }}
+      >
         <input
           type="text"
           placeholder="Search by email"
@@ -117,29 +123,66 @@ export default function CompanyDashboard() {
       {paginatedCandidates.length === 0 ? (
         <p>No candidates found.</p>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 20 }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+            gap: 20
+          }}
+        >
           {paginatedCandidates.map(candidate => {
             const level =
-              candidate.score >= 80 ? 'Excellent' :
-              candidate.score >= 60 ? 'Good' :
-              candidate.score >= 40 ? 'Average' : 'Very Bad'
+              candidate.score >= 80
+                ? 'Excellent'
+                : candidate.score >= 60
+                ? 'Good'
+                : candidate.score >= 40
+                ? 'Average'
+                : 'Very Bad'
 
             return (
-              <div key={candidate.user_id} style={{ padding: 15, border: '1px solid #ccc', borderRadius: 8, boxShadow: '0 2px 5px rgba(0,0,0,0.1)', backgroundColor: '#fff' }}>
+              <div
+                key={candidate.user_id}
+                style={{
+                  padding: 15,
+                  border: '1px solid #ccc',
+                  borderRadius: 8,
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
+                  backgroundColor: '#fff'
+                }}
+              >
                 <h3 style={{ margin: '0 0 10px 0' }}>{candidate.email}</h3>
-                <p><strong>Score:</strong> {candidate.score}%</p>
-                <p><strong>Level:</strong> {level}</p>
+                <p>
+                  <strong>Score:</strong> {candidate.score}%
+                </p>
+                <p>
+                  <strong>Level:</strong> {level}
+                </p>
 
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button
                     onClick={() => viewProfile(candidate.user_id)}
-                    style={{ padding: '6px 10px', cursor: 'pointer', borderRadius: 4, border: '1px solid #0070f3', backgroundColor: '#0070f3', color: '#fff' }}
+                    style={{
+                      padding: '6px 10px',
+                      cursor: 'pointer',
+                      borderRadius: 4,
+                      border: '1px solid #0070f3',
+                      backgroundColor: '#0070f3',
+                      color: '#fff'
+                    }}
                   >
                     View Profile
                   </button>
                   <button
                     onClick={() => downloadPDF(candidate.user_id)}
-                    style={{ padding: '6px 10px', cursor: 'pointer', borderRadius: 4, border: '1px solid #0070f3', backgroundColor: '#fff', color: '#0070f3' }}
+                    style={{
+                      padding: '6px 10px',
+                      cursor: 'pointer',
+                      borderRadius: 4,
+                      border: '1px solid #0070f3',
+                      backgroundColor: '#fff',
+                      color: '#0070f3'
+                    }}
                   >
                     Download PDF
                   </button>
@@ -152,10 +195,32 @@ export default function CompanyDashboard() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div style={{ marginTop: 30, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button onClick={() => setPage(prev => Math.max(prev - 1, 1))} disabled={page === 1} style={{ padding: '6px 12px', cursor: 'pointer' }}>Previous</button>
-          <span>Page {page} of {totalPages}</span>
-          <button onClick={() => setPage(prev => Math.min(prev + 1, totalPages))} disabled={page === totalPages} style={{ padding: '6px 12px', cursor: 'pointer' }}>Next</button>
+        <div
+          style={{
+            marginTop: 30,
+            display: 'flex',
+            gap: 10,
+            alignItems: 'center',
+            flexWrap: 'wrap'
+          }}
+        >
+          <button
+            onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+            disabled={page === 1}
+            style={{ padding: '6px 12px', cursor: 'pointer' }}
+          >
+            Previous
+          </button>
+          <span>
+            Page {page} of {totalPages}
+          </span>
+          <button
+            onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}
+            disabled={page === totalPages}
+            style={{ padding: '6px 12px', cursor: 'pointer' }}
+          >
+            Next
+          </button>
         </div>
       )}
     </div>
