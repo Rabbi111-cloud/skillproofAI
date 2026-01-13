@@ -10,32 +10,24 @@ export default function CandidateLogin() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function login() {
+  const handleLogin = async () => {
     setLoading(true)
-
     try {
-      // 1️⃣ AUTH
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email, password
-      })
-
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
-      if (!data.user) throw new Error('Login failed')
+      if (!data.user) throw new Error('No user session')
 
-      // 2️⃣ ROLE CHECK
-      const { data: profile } = await supabase
+      // Fetch profile
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role')
         .eq('user_id', data.user.id)
         .single()
+      if (profileError || !profile) throw new Error('Profile not found')
 
-      if (!profile || profile.role !== 'candidate') {
-        await supabase.auth.signOut()
-        throw new Error('This account is not a candidate account')
-      }
+      if (profile.role !== 'candidate') throw new Error('Cannot login as candidate with this email')
 
-      router.replace('/dashboard')
-
+      router.push('/dashboard')
     } catch (err) {
       alert(err.message)
     } finally {
@@ -44,11 +36,32 @@ export default function CandidateLogin() {
   }
 
   return (
-    <main>
+    <main style={{ padding: 40, maxWidth: 400, margin: '0 auto' }}>
       <h1>Candidate Login</h1>
-      <input placeholder="Email" onChange={e => setEmail(e.target.value)} />
-      <input type="password" onChange={e => setPassword(e.target.value)} />
-      <button onClick={login}>Login</button>
+
+      <input
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        style={{ width: '100%', padding: 10, marginBottom: 10 }}
+      />
+
+      <input
+        type="password"
+        placeholder="Password"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        style={{ width: '100%', padding: 10, marginBottom: 20 }}
+      />
+
+      <button
+        onClick={handleLogin}
+        disabled={loading}
+        style={{ width: '100%', padding: 12 }}
+      >
+        {loading ? 'Logging in...' : 'Login'}
+      </button>
     </main>
   )
 }
