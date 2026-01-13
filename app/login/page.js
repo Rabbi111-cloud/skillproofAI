@@ -20,7 +20,7 @@ export default function LoginPage() {
       if (error) throw error
       if (!data?.user) throw new Error('No user session')
 
-      // Fetch profile
+      // 🔑 FETCH ROLE
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role')
@@ -29,11 +29,13 @@ export default function LoginPage() {
 
       if (profileError) throw profileError
 
+      // 🔀 ROLE-BASED REDIRECT
       if (profile.role === 'company') {
         router.push('/company/dashboard')
       } else {
         router.push('/dashboard')
       }
+
     } catch (err) {
       console.error('[LOGIN ERROR]', err)
       alert(err.message)
@@ -51,7 +53,7 @@ export default function LoginPage() {
         onChange={e => setPassword(e.target.value)} />
 
       <button onClick={handleLogin} disabled={loading}>
-        {loading ? 'Logging in…' : 'Login'}
+        Login
       </button>
     </div>
   )
