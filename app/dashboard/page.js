@@ -24,16 +24,18 @@ export default function Dashboard() {
       const currentUser = authData.user
       setUser(currentUser)
 
-      // ✅ Check the profiles table safely
+      // ✅ Fetch profile
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('*') // get all fields
+        .select('*')
         .eq('user_id', currentUser.id)
         .single()
 
       if (!profileError && profile) {
-        // ✅ Set submission even if score is 0
-        setSubmission(profile)
+        // ✅ Only consider assessment done if score exists (not null) and skills exist
+        if (typeof profile.score === 'number' && profile.skills) {
+          setSubmission(profile)
+        }
       }
 
       setLoading(false)
@@ -68,14 +70,17 @@ export default function Dashboard() {
       {submission ? (
         <>
           <h3>Assessment Completed ✅</h3>
-          <p><strong>Your Score:</strong> {submission.score ?? 0}%</p>
+          <p><strong>Your Score:</strong> {submission.score}%</p>
 
           <div style={{ marginTop: 15 }}>
             <button onClick={() => router.push(`/p/${user.id}`)}>
               View Profile
             </button>
 
-            <button onClick={() => window.open(`/p/${user.id}`, '_blank')} style={{ marginLeft: 10 }}>
+            <button
+              onClick={() => window.open(`/p/${user.id}`, '_blank')}
+              style={{ marginLeft: 10 }}
+            >
               Share Profile
             </button>
           </div>
