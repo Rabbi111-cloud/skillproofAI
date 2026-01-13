@@ -1,55 +1,103 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabaseClient'
 import { useRouter } from 'next/navigation'
+import { supabase } from '../../lib/supabaseClient'
 
 export default function CandidateDashboard() {
   const router = useRouter()
+
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [errorMsg, setErrorMsg] = useState(null)
 
   useEffect(() => {
-    async function load() {
-      try {
-        const { data: auth } = await supabase.auth.getUser()
-        if (!auth?.user) throw new Error('Not logged in')
+    async function loadDashboard() {
+      setErrorMsg(null)
 
+      try {
+        console.log('DASHBOARD: fetching auth user')
+
+        // 1️⃣ GET AUTH USER
+        const { data: authData, error: authError } =
+          await supabase.auth.getUser()
+
+        if (authError) {
+          console.error('DASHBOARD AUTH ERROR:', authError)
+          throw new Error(`Auth error: ${authError.message}`)
+        }
+
+        if (!authData?.user) {
+          throw new Error('No authenticated user found')
+        }
+
+        console.log('DASHBOARD: user', authData.user.id)
+
+        // 2️⃣ FETCH PROFILE
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('user_id', auth.user.id)
+          .eq('user_id', authData.user.id)
           .single()
 
-        if (error) throw error
+        if (error) {
+          console.error('DASHBOARD PROFILE ERROR:', error)
+          throw new Error(
+            `Profile fetch failed: ${error.message} (${error.code})`
+          )
+        }
 
-        // 🚫 SAFETY: redirect companies away
+        if (!data) {
+          throw new Error('Profile returned null')
+        }
+
+        console.log('DASHBOARD: profile', data)
+
+        // 3️⃣ BLOCK COMPANIES
         if (data.role === 'company') {
+          console.warn('DASHBOARD: company detected, redirecting')
           router.push('/company/dashboard')
           return
         }
 
         setProfile(data)
+
       } catch (err) {
-        console.error('[CANDIDATE DASHBOARD ERROR]', err)
-        router.push('/login')
+        console.error('DASHBOARD FATAL ERROR:', err)
+        setErrorMsg(err.message || JSON.stringify(err))
       } finally {
         setLoading(false)
       }
     }
 
-    load()
+    loadDashboard()
   }, [router])
 
-  if (loading) return <p>Loading...</p>
+  if (loading) {
+    return <p style={{ padding: 20 }}>Loading dashboard…</p>
+  }
+
+  if (errorMsg) {
+    return (
+      <div style={{ padding: 30 }}>
+        <h2>Dashboard Error</h2>
+        <pre style={{ color: 'red', whiteSpace: 'pre-wrap' }}>
+          {errorMsg}
+        </pre>
+        <button onClick={() => router.push('/login')}>
+          Go back to login
+        </button>
+      </div>
+    )
+  }
 
   return (
     <main style={{ padding: 30 }}>
-      <h2>Candidate Dashboard</h2>
+      <h1>Candidate Dashboard</h1>
 
       {profile.score != null ? (
         <>
-          <p>Score: {profile.score}%</p>
+          <p><strong>Score:</strong> {profile.score}%</p>
 
           <button onClick={() => router.push(`/p/${profile.user_id}`)}>
             View Profile
