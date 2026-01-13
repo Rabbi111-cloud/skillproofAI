@@ -6,30 +6,40 @@ import { supabase } from '../../lib/supabaseClient'
 
 export default function LoginPage() {
   const router = useRouter()
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   const handleLogin = async () => {
     setLoading(true)
+    setError(null)
 
     try {
-      const { data, error } =
+      // 1️⃣ AUTHENTICATE
+      const { data, error: authError } =
         await supabase.auth.signInWithPassword({ email, password })
 
-      if (error) throw error
-      if (!data?.user) throw new Error('No user session')
+      if (authError) throw authError
+      if (!data?.user) throw new Error('Authentication failed')
 
-      // 🔑 FETCH ROLE
+      const userId = data.user.id
+
+      // 2️⃣ CHECK PROFILE EXISTS
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role')
-        .eq('user_id', data.user.id)
-        .single()
+        .eq('user_id', userId)
+        .maybeSingle()
 
-      if (profileError) throw profileError
+      // 🚨 NO PROFILE → FORCE SIGNUP
+      if (!profile) {
+        router.push('/signup')
+        return
+      }
 
-      // 🔀 ROLE-BASED REDIRECT
+      // 3️⃣ ROLE-BASED ROUTING
       if (profile.role === 'company') {
         router.push('/company/dashboard')
       } else {
@@ -38,23 +48,38 @@ export default function LoginPage() {
 
     } catch (err) {
       console.error('[LOGIN ERROR]', err)
-      alert(err.message)
+      setError(err.message || 'Login failed')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div style={{ padding: 30 }}>
+    <main style={{ padding: 40, maxWidth: 400 }}>
       <h1>Login</h1>
 
-      <input value={email} onChange={e => setEmail(e.target.value)} />
-      <input type="password" value={password}
-        onChange={e => setPassword(e.target.value)} />
+      <input
+        placeholder="Email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        style={{ display: 'block', marginBottom: 10, width: '100%' }}
+      />
+
+      <input
+        placeholder="Password"
+        type="password"
+        value={password}
+        onChange={e => setPassword(e.target.value)}
+        style={{ display: 'block', marginBottom: 20, width: '100%' }}
+      />
 
       <button onClick={handleLogin} disabled={loading}>
-        Login
+        {loading ? 'Logging in…' : 'Login'}
       </button>
-    </div>
+
+      {error && (
+        <p style={{ color: 'red', marginTop: 15 }}>{error}</p>
+      )}
+    </main>
   )
 }
