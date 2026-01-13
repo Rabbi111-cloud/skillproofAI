@@ -8,35 +8,67 @@ export default function CompanySignup() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [companyName, setCompanyName] = useState('')
+  const [loading, setLoading] = useState(false)
   const router = useRouter()
 
   async function handleSignup() {
-    if (!email || !password || !companyName)
+    if (!email || !password || !companyName) {
       return alert('All fields are required')
+    }
+
+    setLoading(true)
 
     try {
-      // 1️⃣ Sign up in Supabase Auth
-      const { data, error } = await supabase.auth.signUp({ email, password })
+      // 1️⃣ Check if email already belongs to a candidate
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('email', email)
+        .single()
+
+      if (existingProfile?.role === 'candidate') {
+        throw new Error('This email is already registered as a candidate')
+      }
+
+      // 2️⃣ Create auth user
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password
+      })
       if (error) throw error
 
       const userId = data.user.id
 
-      // 2️⃣ Insert company profile
-      const { error: profileError } = await supabase.from('profiles').insert({
-        user_id: userId,
-        email,
-        role: 'company',
-        company_id: userId, // company ID references itself
-        company_name: companyName
-      })
+      // 3️⃣ Create company record FIRST
+      const { error: companyError } = await supabase
+        .from('companies')
+        .insert({
+          id: userId,
+          name: companyName,
+          email
+        })
+
+      if (companyError) throw companyError
+
+      // 4️⃣ Create profile (NO company_name here ❗)
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          user_id: userId,
+          email,
+          role: 'company',
+          company_id: userId
+        })
 
       if (profileError) throw profileError
 
-      alert('Company registered successfully! Please login now.')
+      alert('Company registered successfully. Please log in.')
       router.push('/company/login')
+
     } catch (err) {
-      console.error(err)
-      alert('Signup failed: ' + (err.message || JSON.stringify(err)))
+      alert(`Signup failed: ${err.message}`)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -45,37 +77,30 @@ export default function CompanySignup() {
       <h1>Company Signup</h1>
 
       <input
-        type="text"
         placeholder="Company Name"
         value={companyName}
         onChange={e => setCompanyName(e.target.value)}
-        style={{ display: 'block', margin: '10px 0', padding: 6 }}
+        style={{ display: 'block', margin: '10px 0', padding: 8 }}
       />
+
       <input
-        type="email"
-        placeholder="Email"
+        placeholder="Company Email"
         value={email}
         onChange={e => setEmail(e.target.value)}
-        style={{ display: 'block', margin: '10px 0', padding: 6 }}
+        style={{ display: 'block', margin: '10px 0', padding: 8 }}
       />
+
       <input
         type="password"
         placeholder="Password"
         value={password}
         onChange={e => setPassword(e.target.value)}
-        style={{ display: 'block', margin: '10px 0', padding: 6 }}
+        style={{ display: 'block', margin: '10px 0', padding: 8 }}
       />
 
-      <button
-        onClick={handleSignup}
-        style={{ padding: '6px 12px', marginTop: 10 }}
-      >
-        Signup
+      <button onClick={handleSignup} disabled={loading}>
+        {loading ? 'Signing up...' : 'Signup'}
       </button>
-
-      <p style={{ marginTop: 20 }}>
-        Already have an account? <a href="/company/login">Login here</a>
-      </p>
     </div>
   )
 }
