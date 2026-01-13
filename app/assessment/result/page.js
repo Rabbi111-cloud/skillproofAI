@@ -9,6 +9,8 @@ export default function ResultPage() {
   const router = useRouter()
   const [status, setStatus] = useState('Calculating score...')
   const [skillsDisplay, setSkillsDisplay] = useState({})
+  const [totalScore, setTotalScore] = useState(0)
+  const [done, setDone] = useState(false)
 
   useEffect(() => {
     async function calculateAndSave() {
@@ -25,16 +27,15 @@ export default function ResultPage() {
           return
         }
 
-        // 2️⃣ Get answers from localStorage
+        // 2️⃣ Get answers
         const answers = JSON.parse(localStorage.getItem('answers')) || {}
 
-        let totalCorrect = 0
+        let correctCount = 0
         const skillStats = {}
 
-        // 3️⃣ Calculate scores and insert submissions
-        for (let q of questions) {
+        // 3️⃣ Prepare all submissions to insert
+        const submissionsToInsert = questions.map(q => {
           const skillName = q.skill || 'General'
-
           if (!skillStats[skillName]) skillStats[skillName] = { correct: 0, total: 0 }
           skillStats[skillName].total += 1
 
@@ -44,51 +45,52 @@ export default function ResultPage() {
             q.correct &&
             userAnswer.toLowerCase().trim() === q.correct.toLowerCase().trim()
 
-          if (isCorrect) {
-            totalCorrect += 1
-            skillStats[skillName].correct += 1
-          }
+          if (isCorrect) skillStats[skillName].correct += 1
+          if (isCorrect) correctCount += 1
 
-          // ✅ Insert submission per question
-          await supabase.from('submissions').insert({
+          return {
             user_id: user.id,
             question_id: Number(q.id),
             is_correct: !!isCorrect
-          })
-        }
+          }
+        })
 
-        // 4️⃣ Calculate skill percentages
+        // 4️⃣ Insert all submissions at once
+        const { error: subError } = await supabase.from('submissions').insert(submissionsToInsert)
+        if (subError) console.warn('Submission insert error:', subError.message)
+
+        // 5️⃣ Calculate skill percentages
         const skills = {}
         Object.entries(skillStats).forEach(([skill, stat]) => {
           skills[skill] = Math.round((stat.correct / stat.total) * 100)
         })
         setSkillsDisplay(skills)
 
-        // 5️⃣ Calculate total score
-        const totalScore = Math.round((totalCorrect / questions.length) * 100)
+        // 6️⃣ Calculate total score
+        const finalScore = Math.round((correctCount / questions.length) * 100)
+        setTotalScore(finalScore)
 
-        // 6️⃣ Upsert profile safely
+        // 7️⃣ Upsert profile safely
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .upsert(
             {
               user_id: user.id,
-              score: totalScore,
+              score: finalScore,
               skills,
               email: user.email
             },
-            { onConflict: ['user_id'] } // ✅ avoids duplicate key error
+            { onConflict: ['user_id'] }
           )
           .select()
           .single()
 
         if (profileError) throw profileError
-        console.log('PROFILE SAVED:', profileData)
 
-        // 7️⃣ Cleanup & redirect
+        // 8️⃣ Done, let user see results
+        setStatus('Assessment complete!')
+        setDone(true)
         localStorage.removeItem('answers')
-        setStatus('Done! Redirecting...')
-        router.push('/dashboard')
       } catch (err) {
         console.error('RESULT PAGE ERROR FULL:', err)
         setStatus(`Error calculating score: ${err.message || JSON.stringify(err)}`)
@@ -100,19 +102,32 @@ export default function ResultPage() {
 
   return (
     <div style={{ padding: 30, fontSize: 18 }}>
+      <h2>Result Page</h2>
       <p>{status}</p>
 
-      {Object.keys(skillsDisplay).length > 0 && (
-        <div style={{ marginTop: 20 }}>
-          <h3>Skill Breakdown</h3>
-          <ul>
-            {Object.keys(skillsDisplay).map(skill => (
-              <li key={skill}>
-                {skill}: {skillsDisplay[skill]}%
-              </li>
-            ))}
-          </ul>
-        </div>
+      {done && (
+        <>
+          <p><strong>Total Score:</strong> {totalScore}%</p>
+          {Object.keys(skillsDisplay).length > 0 && (
+            <div style={{ marginTop: 20 }}>
+              <h3>Skill Breakdown</h3>
+              <ul>
+                {Object.keys(skillsDisplay).map(skill => (
+                  <li key={skill}>
+                    {skill}: {skillsDisplay[skill]}%
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <button
+            style={{ marginTop: 20, padding: '10px 20px' }}
+            onClick={() => router.push('/dashboard')}
+          >
+            Go to Dashboard
+          </button>
+        </>
       )}
     </div>
   )
