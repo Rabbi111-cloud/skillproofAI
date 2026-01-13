@@ -8,63 +8,57 @@ export default function CandidateDashboard() {
   const router = useRouter()
 
   const [profile, setProfile] = useState(null)
+  const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [errorMsg, setErrorMsg] = useState(null)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     async function loadDashboard() {
-      setErrorMsg(null)
-
       try {
-        console.log('DASHBOARD: fetching auth user')
+        setError(null)
 
-        // 1️⃣ GET AUTH USER
+        // 1️⃣ AUTH GUARD
         const { data: authData, error: authError } =
           await supabase.auth.getUser()
 
-        if (authError) {
-          console.error('DASHBOARD AUTH ERROR:', authError)
-          throw new Error(`Auth error: ${authError.message}`)
+        if (authError || !authData?.user) {
+          router.push('/login')
+          return
         }
 
-        if (!authData?.user) {
-          throw new Error('No authenticated user found')
-        }
-
-        console.log('DASHBOARD: user', authData.user.id)
+        const userId = authData.user.id
 
         // 2️⃣ FETCH PROFILE
-        const { data, error } = await supabase
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
-          .eq('user_id', authData.user.id)
+          .eq('user_id', userId)
           .single()
 
-        if (error) {
-          console.error('DASHBOARD PROFILE ERROR:', error)
-          throw new Error(
-            `Profile fetch failed: ${error.message} (${error.code})`
-          )
+        if (profileError || !profileData) {
+          throw new Error('Profile not found')
         }
 
-        if (!data) {
-          throw new Error('Profile returned null')
-        }
-
-        console.log('DASHBOARD: profile', data)
-
-        // 3️⃣ BLOCK COMPANIES
-        if (data.role === 'company') {
-          console.warn('DASHBOARD: company detected, redirecting')
+        // 🚫 BLOCK COMPANIES
+        if (profileData.role === 'company') {
           router.push('/company/dashboard')
           return
         }
 
-        setProfile(data)
+        setProfile(profileData)
+
+        // 3️⃣ FETCH RESULT (SOURCE OF TRUTH)
+        const { data: resultData } = await supabase
+          .from('results')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle()
+
+        setResult(resultData || null)
 
       } catch (err) {
-        console.error('DASHBOARD FATAL ERROR:', err)
-        setErrorMsg(err.message || JSON.stringify(err))
+        console.error('[DASHBOARD ERROR]', err)
+        setError(err.message || 'Dashboard failed')
       } finally {
         setLoading(false)
       }
@@ -74,30 +68,30 @@ export default function CandidateDashboard() {
   }, [router])
 
   if (loading) {
-    return <p style={{ padding: 20 }}>Loading dashboard…</p>
+    return <p style={{ padding: 30 }}>Loading dashboard…</p>
   }
 
-  if (errorMsg) {
+  if (error) {
     return (
       <div style={{ padding: 30 }}>
-        <h2>Dashboard Error</h2>
-        <pre style={{ color: 'red', whiteSpace: 'pre-wrap' }}>
-          {errorMsg}
-        </pre>
+        <h2>Error</h2>
+        <p style={{ color: 'red' }}>{error}</p>
         <button onClick={() => router.push('/login')}>
-          Go back to login
+          Go to Login
         </button>
       </div>
     )
   }
 
   return (
-    <main style={{ padding: 30 }}>
+    <main style={{ padding: 40 }}>
       <h1>Candidate Dashboard</h1>
 
-      {profile.score != null ? (
+      {result ? (
         <>
-          <p><strong>Score:</strong> {profile.score}%</p>
+          <p>
+            <strong>Score:</strong> {result.score}%
+          </p>
 
           <button onClick={() => router.push(`/p/${profile.user_id}`)}>
             View Profile
