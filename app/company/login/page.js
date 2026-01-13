@@ -13,13 +13,13 @@ export default function CompanyLogin() {
     if (!email || !password) return alert('Email and password are required')
 
     try {
-      // 1️⃣ Sign in the user
+      // 1️⃣ Sign in with Supabase Auth
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) return alert(error.message)
 
       const userId = data.user.id
 
-      // 2️⃣ Fetch profile and check company role
+      // 2️⃣ Fetch profile from 'profiles' table
       const { data: profile, error: profError } = await supabase
         .from('profiles')
         .select('role, company_name')
@@ -33,14 +33,14 @@ export default function CompanyLogin() {
         return
       }
 
-      // 3️⃣ Ensure it's a company account
-      if (profile.role !== 'company' || !profile.company_name) {
+      // 3️⃣ Check if user is a company account
+      if (profile.role !== 'company') {
         alert('Access denied: Not a company account')
         await supabase.auth.signOut()
         return
       }
 
-      // 4️⃣ Redirect to company dashboard
+      // ✅ Old accounts might not have company_name, we allow login
       router.push('/company/dashboard')
 
     } catch (err) {
@@ -60,7 +60,6 @@ export default function CompanyLogin() {
         onChange={e => setEmail(e.target.value)}
         style={{ display: 'block', margin: '10px 0', padding: 6 }}
       />
-
       <input
         type="password"
         placeholder="Password"
