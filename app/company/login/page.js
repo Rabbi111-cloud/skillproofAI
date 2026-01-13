@@ -11,61 +11,92 @@ export default function CompanyLogin() {
   const router = useRouter()
 
   const handleLogin = async () => {
-    if (!email || !password) return alert('Please fill in email and password')
+    if (!email || !password) {
+      alert('Please enter email and password')
+      return
+    }
+
     setLoading(true)
 
     try {
-      // 1️⃣ Sign in with Supabase Auth
-      const { data, error: loginError } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
-      if (loginError) {
-        alert(`Login failed: ${loginError.message}`)
-        setLoading(false)
+      console.log('[LOGIN] Attempting login for:', email)
+
+      /* 1️⃣ AUTH LOGIN */
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password
+        })
+
+      if (authError) {
+        console.error('[AUTH ERROR]', authError)
+        alert(`Authentication failed: ${authError.message}`)
         return
       }
 
-      const user = data.user
+      const user = authData?.user
       if (!user) {
-        alert('Login failed: No user returned')
-        setLoading(false)
+        console.error('[AUTH ERROR] No user returned')
+        alert('Login failed: No user session created')
         return
       }
 
-      // 2️⃣ Fetch profile
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
+      console.log('[AUTH SUCCESS] User ID:', user.id)
+
+      /* 2️⃣ FETCH COMPANY RECORD */
+      const { data: company, error: companyError } = await supabase
+        .from('companies')
         .select('*')
         .eq('user_id', user.id)
         .single()
 
-      if (profileError || !profile) {
-        alert('Profile not found. Please contact support.')
-        setLoading(false)
+      if (companyError) {
+        console.error('[COMPANY FETCH ERROR]', companyError)
+
+        // RLS or missing row
+        alert(
+          companyError.code === 'PGRST116'
+            ? 'Company record not found. Did you complete signup?'
+            : `Company fetch failed: ${companyError.message}`
+        )
+
+        await supabase.auth.signOut()
         return
       }
 
-      // 3️⃣ Verify company role
-      if (profile.role !== 'company' || !profile.company_id) {
+      if (!company) {
+        console.error('[COMPANY ERROR] Company row is null')
+        alert('Company account not found')
+        await supabase.auth.signOut()
+        return
+      }
+
+      console.log('[COMPANY FOUND]', company)
+
+      /* 3️⃣ OPTIONAL ROLE CHECK (DEFENSIVE) */
+      if (company.role && company.role !== 'company') {
+        console.error('[ROLE ERROR] Invalid role:', company.role)
         alert('Access denied: Not a company account')
         await supabase.auth.signOut()
-        setLoading(false)
         return
       }
 
-      // ✅ Success — go to dashboard
+      /* ✅ SUCCESS */
+      console.log('[LOGIN SUCCESS] Redirecting to dashboard')
       router.push('/company/dashboard')
     } catch (err) {
-      console.error('Company login error:', err)
-      alert('Company login failed. Reason: ' + (err.message || JSON.stringify(err)))
+      console.error('[UNEXPECTED LOGIN ERROR]', err)
+      alert(
+        'Unexpected login error:\n' +
+          (err?.message || JSON.stringify(err))
+      )
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div style={{ padding: 30 }}>
+    <div style={{ padding: 30, maxWidth: 400 }}>
       <h1>Company Login</h1>
 
       <input
@@ -73,7 +104,7 @@ export default function CompanyLogin() {
         placeholder="Email"
         value={email}
         onChange={e => setEmail(e.target.value)}
-        style={{ display: 'block', margin: '10px 0', padding: 6 }}
+        style={{ width: '100%', margin: '10px 0', padding: 8 }}
       />
 
       <input
@@ -81,19 +112,20 @@ export default function CompanyLogin() {
         placeholder="Password"
         value={password}
         onChange={e => setPassword(e.target.value)}
-        style={{ display: 'block', margin: '10px 0', padding: 6 }}
+        style={{ width: '100%', margin: '10px 0', padding: 8 }}
       />
 
       <button
         onClick={handleLogin}
-        style={{ padding: '6px 12px', marginTop: 10 }}
         disabled={loading}
+        style={{ width: '100%', padding: 10 }}
       >
-        {loading ? 'Logging in...' : 'Login'}
+        {loading ? 'Logging in…' : 'Login'}
       </button>
 
       <p style={{ marginTop: 20 }}>
-        Don't have an account? <a href="/company/signup">Signup here</a>
+        Don&apos;t have an account?{' '}
+        <a href="/company/signup">Signup here</a>
       </p>
     </div>
   )
