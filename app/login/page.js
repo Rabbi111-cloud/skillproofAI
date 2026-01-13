@@ -13,11 +13,12 @@ export default function CandidateLogin() {
   const handleLogin = async () => {
     setLoading(true)
     try {
+      // Sign in
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
-      if (!data.user) throw new Error('No user session')
+      if (!data.user) throw new Error('Login failed')
 
-      // ✅ Check profile role
+      // Fetch profile and check role
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
