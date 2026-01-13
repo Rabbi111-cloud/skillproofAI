@@ -10,43 +10,21 @@ export default function CompanySignup() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
-  async function signUp() {
+  const handleSignup = async () => {
     setLoading(true)
-
     try {
-      // 1️⃣ CREATE AUTH USER
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      })
-
+      const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) throw error
       if (!data.user) throw new Error('Signup failed')
 
-      // 2️⃣ CHECK EXISTING PROFILE
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('user_id', data.user.id)
-        .maybeSingle()
-
-      if (existingProfile) {
-        throw new Error('Account already exists')
-      }
-
-      // 3️⃣ CREATE COMPANY PROFILE
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          user_id: data.user.id,
-          email,
-          role: 'company',
-        })
-
+      const { error: profileError } = await supabase.from('profiles').insert({
+        user_id: data.user.id,
+        email,
+        role: 'company'
+      })
       if (profileError) throw profileError
 
-      router.replace('/company/dashboard')
-
+      router.push('/company/dashboard')
     } catch (err) {
       alert(err.message)
     } finally {
@@ -55,29 +33,32 @@ export default function CompanySignup() {
   }
 
   return (
-    <main style={{ maxWidth: 400, padding: 40 }}>
-      <h1>Company Sign Up</h1>
+    <main style={{ padding: 40, maxWidth: 400, margin: '0 auto' }}>
+      <h1>Company Signup</h1>
 
       <input
-        placeholder="Company Email"
+        type="email"
+        placeholder="Email"
+        value={email}
         onChange={e => setEmail(e.target.value)}
-        style={{ width: '100%', marginBottom: 10 }}
+        style={{ width: '100%', padding: 10, marginBottom: 10 }}
       />
 
       <input
         type="password"
         placeholder="Password"
+        value={password}
         onChange={e => setPassword(e.target.value)}
-        style={{ width: '100%', marginBottom: 20 }}
+        style={{ width: '100%', padding: 10, marginBottom: 20 }}
       />
 
-      <button onClick={signUp} disabled={loading}>
-        {loading ? 'Creating account…' : 'Create Company Account'}
+      <button
+        onClick={handleSignup}
+        disabled={loading}
+        style={{ width: '100%', padding: 12 }}
+      >
+        {loading ? 'Signing up...' : 'Signup'}
       </button>
-
-      <p style={{ marginTop: 20 }}>
-        Already a company? <a href="/company/login">Login</a>
-      </p>
     </main>
   )
 }
