@@ -1,102 +1,85 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
 
-export default function CandidateDashboard() {
+export default function CandidateSignup() {
   const router = useRouter()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  async function handleSignup(e) {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
 
-  useEffect(() => {
-    async function loadDashboard() {
-      try {
-        // 1️⃣ Auth user
-        const { data: authData } = await supabase.auth.getUser()
-        if (!authData?.user) {
-          router.replace('/login')
-          return
-        }
+    try {
+      // 1️⃣ Sign up user
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password
+      })
 
-        const userId = authData.user.id
+      if (signUpError) throw signUpError
 
-        // 2️⃣ Profile
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('user_id', userId)
-          .single()
+      // 2️⃣ Insert profile row
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert([{ user_id: data.user.id, email, role: 'candidate' }])
 
-        if (error || !data) {
-          throw new Error('Profile not found')
-        }
+      if (profileError) throw profileError
 
-        if (data.role !== 'candidate') {
-          router.replace('/company/dashboard')
-          return
-        }
-
-        setProfile(data)
-      } catch (err) {
-        setError(err.message)
-      } finally {
-        setLoading(false)
-      }
+      // 3️⃣ Redirect to dashboard
+      router.push('/dashboard')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
     }
-
-    loadDashboard()
-  }, [router])
-
-  if (loading) return <p style={{ padding: 30 }}>Loading…</p>
-
-  if (error) {
-    return (
-      <div style={{ padding: 30 }}>
-        <p style={{ color: 'red' }}>{error}</p>
-        <button onClick={() => router.replace('/login')}>Login</button>
-      </div>
-    )
   }
 
   return (
-    <main style={{ padding: 30 }}>
-      <h1>Candidate Dashboard</h1>
-      <p>Welcome, {profile.email}</p>
+    <main style={{ padding: 40, maxWidth: 500, margin: '0 auto' }}>
+      <h1>Candidate Signup</h1>
 
-      {profile.assessment_completed ? (
-        <>
-          <h2>Assessment Completed ✅</h2>
-          <p><strong>Score:</strong> {profile.score}%</p>
+      {error && <p style={{ color: 'red' }}>{error}</p>}
 
-          <h3>Skill Breakdown</h3>
-          <pre>{JSON.stringify(profile.breakdown, null, 2)}</pre>
+      <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          required
+          style={{ padding: 12, borderRadius: 8, border: '1px solid #ccc' }}
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          required
+          style={{ padding: 12, borderRadius: 8, border: '1px solid #ccc' }}
+        />
 
-          <button onClick={() => router.push(`/p/${profile.user_id}`)}>
-            View Profile
-          </button>
-
-          <button
-            style={{ marginLeft: 10 }}
-            onClick={() => window.open(`/p/${profile.user_id}`, '_blank')}
-          >
-            Share Profile
-          </button>
-        </>
-      ) : (
-        <button onClick={() => router.push('/assessment/1')}>
-          Take Assessment
+        <button
+          type="submit"
+          disabled={loading}
+          style={{
+            padding: 12,
+            borderRadius: 8,
+            border: 'none',
+            background: '#2563eb',
+            color: '#fff',
+            cursor: 'pointer'
+          }}
+        >
+          {loading ? 'Signing up…' : 'Sign Up'}
         </button>
-      )}
-
-      <button
-        style={{ marginTop: 20 }}
-        onClick={() => router.push('/logout')}
-      >
-        Logout
-      </button>
+      </form>
     </main>
   )
 }
