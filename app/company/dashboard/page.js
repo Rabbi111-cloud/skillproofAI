@@ -12,6 +12,10 @@ export default function CompanyDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  // ✅ Pagination state
+  const [currentPage, setCurrentPage] = useState(0)
+  const candidatesPerPage = 6 // adjust how many per "row/page"
+
   useEffect(() => {
     async function loadDashboard() {
       try {
@@ -74,6 +78,14 @@ export default function CompanyDashboard() {
     )
   }
 
+  // ✅ Calculate current page candidates
+  const startIndex = currentPage * candidatesPerPage
+  const currentCandidates = candidates.slice(
+    startIndex,
+    startIndex + candidatesPerPage
+  )
+  const totalPages = Math.ceil(candidates.length / candidatesPerPage)
+
   return (
     <main style={{ padding: 30 }}>
       <h1>Company Dashboard</h1>
@@ -83,25 +95,67 @@ export default function CompanyDashboard() {
       {candidates.length === 0 ? (
         <p>No candidates registered yet.</p>
       ) : (
-        <ul>
-          {candidates.map(c => (
-            <li key={c.user_id} style={{ marginBottom: 10 }}>
-              <strong>{c.email}</strong>
+        <>
+          {/* ✅ Horizontal row */}
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 20
+          }}>
+            {currentCandidates.map(c => (
+              <div key={c.user_id} style={{
+                border: '1px solid #ccc',
+                borderRadius: 8,
+                padding: 15,
+                minWidth: 200,
+                textAlign: 'center'
+              }}>
+                <strong>{c.email}</strong>
+                <div style={{ marginTop: 10 }}>
+                  <button
+                    onClick={() => router.push(`/p/${c.user_id}`)}
+                    style={{
+                      padding: '5px 10px',
+                      borderRadius: 5,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    View Profile
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ✅ Pagination buttons */}
+          {totalPages > 1 && (
+            <div style={{ marginTop: 20 }}>
               <button
-                style={{ marginLeft: 10 }}
-                onClick={() => router.push(`/p/${c.user_id}`)}
+                onClick={() => setCurrentPage(p => Math.max(p - 1, 0))}
+                disabled={currentPage === 0}
+                style={{ marginRight: 10, padding: '5px 10px', borderRadius: 5 }}
               >
-                View Profile
+                Previous
               </button>
-            </li>
-          ))}
-        </ul>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages - 1))}
+                disabled={currentPage === totalPages - 1}
+                style={{ padding: '5px 10px', borderRadius: 5 }}
+              >
+                Next
+              </button>
+              <span style={{ marginLeft: 15 }}>
+                Page {currentPage + 1} of {totalPages}
+              </span>
+            </div>
+          )}
+        </>
       )}
 
       {/* ✅ LOGOUT BUTTON */}
       <button
         style={{
-          marginTop: 20,
+          marginTop: 30,
           padding: '10px 20px',
           backgroundColor: '#f44336',
           color: '#fff',
