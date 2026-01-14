@@ -7,20 +7,18 @@ const ADMIN_EMAIL = 'diggingdeep0007@gmail.com'
 
 export default function Home() {
   const router = useRouter()
-  const [adminPrompt, setAdminPrompt] = useState(false)
+  const [showAdminLogin, setShowAdminLogin] = useState(false)
   const [adminEmail, setAdminEmail] = useState('')
-  const [adminPassword, setAdminPassword] = useState('')
   const [adminError, setAdminError] = useState('')
 
-  // Handle admin login prompt
-  function handleAdminSubmit(e) {
+  const handleAdminSubmit = (e) => {
     e.preventDefault()
     setAdminError('')
 
-    if (adminEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase() && adminPassword === 'adminpassword') {
-      router.push('/admin') // Redirect to admin dashboard
+    if (adminEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+      router.push('/admin')
     } else {
-      setAdminError('Invalid admin credentials.')
+      setAdminError('Invalid admin email.')
     }
   }
 
@@ -52,10 +50,11 @@ export default function Home() {
           Prove skills. Hire smarter.
         </p>
 
+        {/* Dashboard Buttons */}
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 1fr 1fr',
+            gridTemplateColumns: '1fr 1fr',
             gap: 30,
             marginTop: 40
           }}
@@ -74,64 +73,55 @@ export default function Home() {
           {/* Company */}
           <div style={cardStyle}>
             <h2>Company</h2>
-            <button style={primaryBtn} onClick={() => router.push('/company/signup')}>
-              Signup
-            </button>
-            <button style={secondaryBtn} onClick={() => router.push('/company/login')}>
-              Login
-            </button>
-          </div>
-
-          {/* Admin */}
-          <div style={cardStyle}>
-            <h2>Admin</h2>
             <button
               style={primaryBtn}
-              onClick={() => setAdminPrompt(true)}
+              onClick={() => router.push('/company/signup')}
             >
-              Admin Dashboard
+              Signup
+            </button>
+            <button
+              style={secondaryBtn}
+              onClick={() => router.push('/company/login')}
+            >
+              Login
             </button>
           </div>
         </div>
 
-        {/* Admin login prompt */}
-        {adminPrompt && (
-          <div style={{ marginTop: 30, padding: 20, border: '1px solid #ccc', borderRadius: 12 }}>
-            <h3>Admin Login</h3>
-            {adminError && <p style={{ color: 'red' }}>{adminError}</p>}
-            <form onSubmit={handleAdminSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Admin Access */}
+        <div style={{ marginTop: 40, textAlign: 'center' }}>
+          {!showAdminLogin ? (
+            <button
+              style={{
+                ...primaryBtn,
+                width: 'auto',
+                padding: '10px 20px',
+                marginTop: 10
+              }}
+              onClick={() => setShowAdminLogin(true)}
+            >
+              Admin Access
+            </button>
+          ) : (
+            <form
+              onSubmit={handleAdminSubmit}
+              style={{ display: 'flex', flexDirection: 'column', gap: 15, alignItems: 'center', marginTop: 10 }}
+            >
               <input
                 type="email"
                 placeholder="Admin Email"
                 value={adminEmail}
                 onChange={(e) => setAdminEmail(e.target.value)}
                 required
-                style={{ padding: 10, borderRadius: 8, border: '1px solid #ccc' }}
+                style={{ padding: 12, borderRadius: 8, border: '1px solid #ccc', width: 250 }}
               />
-              <input
-                type="password"
-                placeholder="Admin Password"
-                value={adminPassword}
-                onChange={(e) => setAdminPassword(e.target.value)}
-                required
-                style={{ padding: 10, borderRadius: 8, border: '1px solid #ccc' }}
-              />
-              <button
-                type="submit"
-                style={{ padding: 10, borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', cursor: 'pointer' }}
-              >
-                Login
-              </button>
-              <button
-                type="button"
-                style={{ padding: 10, borderRadius: 8, border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer', marginTop: 5 }}
-                onClick={() => setAdminPrompt(false)}
-              >
-                Cancel
+              {adminError && <p style={{ color: 'red' }}>{adminError}</p>}
+              <button type="submit" style={{ ...primaryBtn, width: 'auto', padding: '10px 20px' }}>
+                Login as Admin
               </button>
             </form>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </main>
   )
