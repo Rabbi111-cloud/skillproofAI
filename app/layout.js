@@ -19,13 +19,38 @@ export default function RootLayout({ children }) {
 
   return (
     <html lang="en">
+      <head>
+        {/* 🌗 GLOBAL THEME VARIABLES (NUMBER 3 FIX) */}
+        <style>{`
+          :root {
+            --bg: #f8fafc;
+            --text: #020617;
+            --card: #ffffff;
+            --sidebar-bg: #ffffff;
+            --border: #e5e7eb;
+            --primary: #2563eb;
+            --danger: #dc2626;
+          }
+
+          [data-theme='dark'] {
+            --bg: #020617;
+            --text: #e5e7eb;
+            --card: #020617;
+            --sidebar-bg: #020617;
+            --border: #1e293b;
+            --primary: #3b82f6;
+            --danger: #ef4444;
+          }
+        `}</style>
+      </head>
+
       <body
         style={{
           margin: 0,
           fontFamily: 'Inter, system-ui, sans-serif',
           background: 'var(--bg)',
           color: 'var(--text)',
-          transition: 'background 0.3s, color 0.3s'
+          transition: 'background 0.3s ease, color 0.3s ease'
         }}
       >
         {/* Theme Toggle */}
@@ -35,7 +60,7 @@ export default function RootLayout({ children }) {
             position: 'fixed',
             top: 20,
             right: 20,
-            padding: '8px 12px',
+            padding: '8px 14px',
             borderRadius: 20,
             border: 'none',
             cursor: 'pointer',
