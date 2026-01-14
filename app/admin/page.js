@@ -3,42 +3,114 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 
+// 🔐 HARD-CODED ADMIN CREDENTIALS
+const ADMIN_EMAIL = 'diggingdeep0007@gmail.com'
+const ADMIN_PASSWORD = 'supersecret' // optional password check
+
 export default function AdminDashboard() {
+  const [loggedIn, setLoggedIn] = useState(false)
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [loginError, setLoginError] = useState('')
   const [profiles, setProfiles] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    async function loadProfiles() {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('user_id, email, score, breakdown, updated_at')
-          .order('score', { ascending: false })
+  // Fetch candidate profiles after successful login
+  const loadProfiles = async () => {
+    setLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('user_id, email, score, breakdown, updated_at')
+        .order('score', { ascending: false })
 
-        if (error) throw error
-        setProfiles(data || [])
-      } catch (err) {
-        console.error(err)
-        setError('Error loading admin dashboard')
-      } finally {
-        setLoading(false)
-      }
+      if (error) throw error
+      setProfiles(data || [])
+    } catch (err) {
+      console.error('Error fetching candidates:', err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleLogin = (e) => {
+    e.preventDefault()
+    setLoginError('')
+
+    if (loginEmail.toLowerCase() !== ADMIN_EMAIL) {
+      setLoginError('Invalid admin credentials.')
+      return
     }
 
+    if (ADMIN_PASSWORD && loginPassword !== ADMIN_PASSWORD) {
+      setLoginError('Invalid admin credentials.')
+      return
+    }
+
+    setLoggedIn(true)
     loadProfiles()
-  }, [])
+  }
 
-  if (loading) return <p style={{ padding: 30 }}>Loading admin dashboard...</p>
-  if (error) return <p style={{ padding: 30, color: 'red' }}>{error}</p>
+  if (!loggedIn) {
+    // Show login form
+    return (
+      <main style={{ padding: 40, maxWidth: 500, margin: '0 auto' }}>
+        <h2>Admin Login</h2>
+        {loginError && <p style={{ color: 'red' }}>{loginError}</p>}
+        <form
+          onSubmit={handleLogin}
+          style={{ display: 'flex', flexDirection: 'column', gap: 15 }}
+        >
+          <input
+            type="email"
+            placeholder="Admin Email"
+            value={loginEmail}
+            onChange={(e) => setLoginEmail(e.target.value)}
+            required
+            style={{ padding: 12, borderRadius: 8, border: '1px solid #ccc' }}
+          />
+          {ADMIN_PASSWORD && (
+            <input
+              type="password"
+              placeholder="Password"
+              value={loginPassword}
+              onChange={(e) => setLoginPassword(e.target.value)}
+              required
+              style={{
+                padding: 12,
+                borderRadius: 8,
+                border: '1px solid #ccc'
+              }}
+            />
+          )}
+          <button
+            type="submit"
+            style={{
+              padding: 12,
+              borderRadius: 8,
+              border: 'none',
+              background: '#2563eb',
+              color: '#fff',
+              cursor: 'pointer'
+            }}
+          >
+            Login
+          </button>
+        </form>
+      </main>
+    )
+  }
 
+  // Admin dashboard view
   return (
     <main style={{ padding: 40 }}>
       <h2>Admin Dashboard</h2>
 
-      {profiles.length === 0 ? (
-        <p>No candidates yet.</p>
-      ) : (
+      {loading && <p>Loading candidate profiles...</p>}
+
+      {!loading && profiles.length === 0 && <p>No candidates yet.</p>}
+
+      {!loading && profiles.length > 0 && (
         <table border="1" cellPadding="10" style={{ marginTop: 20 }}>
           <thead>
             <tr>
@@ -58,7 +130,7 @@ export default function AdminDashboard() {
               return (
                 <tr key={profile.user_id}>
                   <td>{profile.email}</td>
-                  <td>{profile.score}</td>
+                  <td>{profile.score ?? 'N/A'}</td>
                   <td>{level}</td>
                   <td>
                     {profile.breakdown
@@ -66,7 +138,11 @@ export default function AdminDashboard() {
                       : 'N/A'}
                   </td>
                   <td>
-                    <a href={`/p/${profile.user_id}`} target="_blank" rel="noreferrer">
+                    <a
+                      href={`/p/${profile.user_id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       View Profile
                     </a>
                   </td>
