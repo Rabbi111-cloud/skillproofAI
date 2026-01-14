@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '../lib/supabaseClient'
+import { supabase } from '../../lib/supabaseClient'
 
 // 🔐 ADMIN EMAIL
 const ADMIN_EMAIL = 'diggingdeep0007@gmail.com'
