@@ -17,7 +17,7 @@ export default function CandidateSignup() {
     setError('')
 
     // ✅ Prevent admin email signup
-    if (email.toLowerCase() === 'diggingdeep0007@gmail.com') {
+    if (email.toLowerCase() === 'diggingdeep0009@gmail.com') {
       setError('This email is reserved for admin.')
       setLoading(false)
       return
