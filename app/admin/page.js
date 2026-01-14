@@ -10,44 +10,38 @@ export default function AdminDashboard() {
   const router = useRouter()
   const [profiles, setProfiles] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
 
   useEffect(() => {
     async function loadAdmin() {
-      try {
-        const res = await supabase.auth.getUser()
+      const { data: authData } = await supabase.auth.getUser()
 
-        if (!res?.data?.user) {
-          router.replace('/')
-          return
-        }
-
-        const user = res.data.user
-
-        if (user.email !== ADMIN_EMAIL) {
-          router.replace('/dashboard')
-          return
-        }
-
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('user_id, email, score, updated_at')
-          .order('updated_at', { ascending: false })
-
-        if (error) throw error
-
-        // 🔐 FILTER BAD ROWS (CRITICAL FIX)
-        const safeProfiles = (data || []).filter(
-          p => p?.user_id && p?.email
-        )
-
-        setProfiles(safeProfiles)
-      } catch (err) {
-        console.error(err)
-        setError('Failed to load admin dashboard')
-      } finally {
-        setLoading(false)
+      if (!authData?.user) {
+        router.replace('/')
+        return
       }
+
+      if (authData.user.email !== ADMIN_EMAIL) {
+        router.replace('/dashboard')
+        return
+      }
+
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_id, email, score')
+        .order('updated_at', { ascending: false })
+
+      // 🚨 ABSOLUTE SAFETY FILTER
+      const safe = (data || []).map(p => ({
+        user_id: p?.user_id ?? '',
+        email: p?.email ?? 'Unknown',
+        score:
+          typeof p?.score === 'number'
+            ? p.score
+            : Number(p?.score) || null
+      }))
+
+      setProfiles(safe)
+      setLoading(false)
     }
 
     loadAdmin()
@@ -57,46 +51,52 @@ export default function AdminDashboard() {
     return <p style={{ padding: 40 }}>Loading admin dashboard…</p>
   }
 
-  if (error) {
-    return (
-      <div style={{ padding: 40 }}>
-        <p style={{ color: 'red' }}>{error}</p>
-        <button onClick={() => router.replace('/')}>Go Home</button>
-      </div>
-    )
-  }
-
   return (
     <main style={{ padding: 40 }}>
       <h1>Admin Dashboard</h1>
 
       {profiles.length === 0 ? (
-        <p>No valid candidate profiles yet.</p>
+        <p>No candidates yet.</p>
       ) : (
         <table border="1" cellPadding="10" style={{ marginTop: 20 }}>
           <thead>
             <tr>
               <th>Email</th>
               <th>Score</th>
+              <th>Level</th>
               <th>Profile</th>
             </tr>
           </thead>
           <tbody>
-            {profiles.map(p => (
-              <tr key={p.user_id}>
-                <td>{p.email}</td>
-                <td>{p.score ?? 'N/A'}</td>
-                <td>
-                  <a
-                    href={`/p/${p.user_id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    View
-                  </a>
-                </td>
-              </tr>
-            ))}
+            {profiles.map(p => {
+              let level = 'N/A'
+              if (typeof p.score === 'number') {
+                if (p.score >= 90) level = 'Excellent'
+                else if (p.score >= 80) level = 'Strong'
+                else level = 'Average'
+              }
+
+              return (
+                <tr key={p.user_id || p.email}>
+                  <td>{p.email}</td>
+                  <td>{p.score ?? '—'}</td>
+                  <td>{level}</td>
+                  <td>
+                    {p.user_id ? (
+                      <a
+                        href={`/p/${p.user_id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        View
+                      </a>
+                    ) : (
+                      'Unavailable'
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       )}
