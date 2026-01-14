@@ -17,6 +17,7 @@ export default function CompanyLogin() {
       if (error) throw error
       if (!data.user) throw new Error('Login failed')
 
+      // Check role in profiles
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
@@ -51,7 +52,11 @@ export default function CompanyLogin() {
         onChange={e => setPassword(e.target.value)}
         style={{ width: '100%', padding: 10, marginBottom: 20 }}
       />
-      <button onClick={handleLogin} disabled={loading} style={{ width: '100%', padding: 12 }}>
+      <button
+        onClick={handleLogin}
+        disabled={loading}
+        style={{ width: '100%', padding: 12 }}
+      >
         {loading ? 'Logging in...' : 'Login'}
       </button>
     </main>
