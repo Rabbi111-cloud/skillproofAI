@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
+import Sidebar from '../../components/Sidebar'
 
 export default function CandidateDashboard() {
   const router = useRouter()
@@ -58,62 +59,70 @@ export default function CandidateDashboard() {
   }
 
   return (
-    <main style={{ minHeight: '100vh', background: '#f8fafc', padding: 40 }}>
-      <div style={container}>
-        <h1>Candidate Dashboard</h1>
-        <p style={{ color: '#64748b' }}>Welcome, {profile.email}</p>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+      {/* ✅ SIDEBAR */}
+      <Sidebar role="candidate" />
 
-        {profile.assessment_completed ? (
-          <div style={card}>
-            <h2>Assessment Completed ✅</h2>
-            <div style={score}>{profile.score}%</div>
+      {/* ✅ MAIN CONTENT */}
+      <main style={{ flex: 1, padding: 40 }}>
+        <div style={container}>
+          <h1>Candidate Dashboard</h1>
+          <p style={{ color: '#64748b' }}>Welcome, {profile.email}</p>
 
-            <h3>Skill Breakdown</h3>
-            <pre style={pre}>
-              {JSON.stringify(profile.breakdown, null, 2)}
-            </pre>
+          {profile.assessment_completed ? (
+            <div style={card}>
+              <h2>Assessment Completed ✅</h2>
+              <div style={score}>{profile.score}%</div>
 
-            <div style={{ marginTop: 20 }}>
-              <button
-                style={primaryBtn}
-                onClick={() => router.push(`/p/${profile.user_id}`)}
-              >
-                View Profile
-              </button>
-              <button
-                style={{ ...secondaryBtn, marginLeft: 10 }}
-                onClick={() =>
-                  window.open(`/p/${profile.user_id}`, '_blank')
-                }
-              >
-                Share Profile
-              </button>
+              <h3>Skill Breakdown</h3>
+              <pre style={pre}>
+                {JSON.stringify(profile.breakdown, null, 2)}
+              </pre>
+
+              <div style={{ marginTop: 20 }}>
+                <button
+                  style={primaryBtn}
+                  onClick={() => router.push(`/p/${profile.user_id}`)}
+                >
+                  View Profile
+                </button>
+                <button
+                  style={{ ...secondaryBtn, marginLeft: 10 }}
+                  onClick={() =>
+                    window.open(`/p/${profile.user_id}`, '_blank')
+                  }
+                >
+                  Share Profile
+                </button>
+              </div>
             </div>
-          </div>
-        ) : (
-          <button
-            style={primaryBtn}
-            onClick={() => router.push('/assessment/1')}
-          >
-            Take Assessment
-          </button>
-        )}
+          ) : (
+            <button
+              style={primaryBtn}
+              onClick={() => router.push('/assessment/1')}
+            >
+              Take Assessment
+            </button>
+          )}
 
-        <button
-          style={{ ...dangerBtn, marginTop: 30 }}
-          onClick={() => router.push('/logout')}
-        >
-          Logout
-        </button>
-      </div>
-    </main>
+          <button
+            style={{ ...dangerBtn, marginTop: 30 }}
+            onClick={() => router.push('/logout')}
+          >
+            Logout
+          </button>
+        </div>
+      </main>
+    </div>
   )
 }
+
+/* ===== STYLES (UNCHANGED LOGIC) ===== */
 
 const container = { maxWidth: 900, margin: '0 auto' }
 
 const card = {
-  background: '#fff',
+  background: 'var(--card)',
   padding: 30,
   borderRadius: 16,
   boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
@@ -123,7 +132,7 @@ const card = {
 const score = {
   fontSize: 42,
   fontWeight: 'bold',
-  color: '#2563eb',
+  color: 'var(--primary)',
   margin: '20px 0'
 }
 
@@ -136,7 +145,7 @@ const pre = {
 
 const primaryBtn = {
   padding: '10px 18px',
-  background: '#2563eb',
+  background: 'var(--primary)',
   color: '#fff',
   border: 'none',
   borderRadius: 8,
@@ -145,11 +154,11 @@ const primaryBtn = {
 
 const secondaryBtn = {
   ...primaryBtn,
-  background: '#e5e7eb',
-  color: '#111827'
+  background: 'var(--secondary)',
+  color: 'var(--text)'
 }
 
 const dangerBtn = {
   ...primaryBtn,
-  background: '#dc2626'
+  background: 'var(--danger)'
 }
