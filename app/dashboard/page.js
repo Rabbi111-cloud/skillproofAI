@@ -12,6 +12,20 @@ export default function CandidateDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  const [theme, setTheme] = useState('light')
+
+  // Load saved theme
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme')
+    if (savedTheme) setTheme(savedTheme)
+  }, [])
+
+  // Apply theme
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('theme', theme)
+  }, [theme])
+
   useEffect(() => {
     async function loadDashboard() {
       try {
@@ -59,12 +73,32 @@ export default function CandidateDashboard() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
       {/* ✅ SIDEBAR */}
       <Sidebar role="candidate" />
 
       {/* ✅ MAIN CONTENT */}
       <main style={{ flex: 1, padding: 40 }}>
+        {/* ✅ THEME TOGGLE */}
+        <button
+          onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+          style={{
+            position: 'fixed',
+            top: 20,
+            right: 20,
+            padding: '8px 14px',
+            borderRadius: 20,
+            border: 'none',
+            cursor: 'pointer',
+            background: 'var(--card)',
+            color: 'var(--text)',
+            boxShadow: '0 5px 15px rgba(0,0,0,0.15)',
+            zIndex: 999
+          }}
+        >
+          {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
+        </button>
+
         <div style={container}>
           <h1>Candidate Dashboard</h1>
           <p style={{ color: '#64748b' }}>Welcome, {profile.email}</p>
@@ -88,9 +122,7 @@ export default function CandidateDashboard() {
                 </button>
                 <button
                   style={{ ...secondaryBtn, marginLeft: 10 }}
-                  onClick={() =>
-                    window.open(`/p/${profile.user_id}`, '_blank')
-                  }
+                  onClick={() => window.open(`/p/${profile.user_id}`, '_blank')}
                 >
                   Share Profile
                 </button>
@@ -117,8 +149,7 @@ export default function CandidateDashboard() {
   )
 }
 
-/* ===== STYLES (UNCHANGED LOGIC) ===== */
-
+/* ===== STYLES ===== */
 const container = { maxWidth: 900, margin: '0 auto' }
 
 const card = {
@@ -154,7 +185,7 @@ const primaryBtn = {
 
 const secondaryBtn = {
   ...primaryBtn,
-  background: 'var(--secondary)',
+  background: '#e5e7eb',
   color: 'var(--text)'
 }
 
