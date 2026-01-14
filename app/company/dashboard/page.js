@@ -12,22 +12,20 @@ export default function CompanyDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // ✅ Pagination state
   const [currentPage, setCurrentPage] = useState(0)
-  const candidatesPerPage = 6 // adjust how many per "row/page"
+  const candidatesPerPage = 6
 
   useEffect(() => {
     async function loadDashboard() {
       try {
-        // 1️⃣ GET AUTH USER
         const { data: authData } = await supabase.auth.getUser()
         if (!authData?.user) {
           router.replace('/company/login')
           return
         }
+
         const userId = authData.user.id
 
-        // 2️⃣ GET PROFILE
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
@@ -36,7 +34,6 @@ export default function CompanyDashboard() {
 
         if (profileError || !profileData) throw new Error('Profile not found')
 
-        // 3️⃣ BLOCK CANDIDATES
         if (profileData.role !== 'company') {
           router.replace('/dashboard')
           return
@@ -44,18 +41,16 @@ export default function CompanyDashboard() {
 
         setProfile(profileData)
 
-        // 4️⃣ FETCH ALL CANDIDATE PROFILES
         const { data: candidatesData, error: candidatesError } = await supabase
           .from('profiles')
           .select('*')
           .eq('role', 'candidate')
 
         if (candidatesError) throw candidatesError
-        setCandidates(candidatesData || [])
 
+        setCandidates(candidatesData || [])
       } catch (err) {
-        console.error('[Company Dashboard Error]', err)
-        setError(err.message || 'Something went wrong')
+        setError(err.message)
       } finally {
         setLoading(false)
       }
@@ -64,12 +59,11 @@ export default function CompanyDashboard() {
     loadDashboard()
   }, [router])
 
-  if (loading) return <p style={{ padding: 30 }}>Loading dashboard…</p>
+  if (loading) return <p style={{ padding: 40 }}>Loading…</p>
 
   if (error) {
     return (
-      <div style={{ padding: 30 }}>
-        <h2>Error</h2>
+      <div style={{ padding: 40 }}>
         <p style={{ color: 'red' }}>{error}</p>
         <button onClick={() => router.replace('/company/login')}>
           Login
@@ -78,7 +72,6 @@ export default function CompanyDashboard() {
     )
   }
 
-  // ✅ Calculate current page candidates
   const startIndex = currentPage * candidatesPerPage
   const currentCandidates = candidates.slice(
     startIndex,
@@ -87,86 +80,91 @@ export default function CompanyDashboard() {
   const totalPages = Math.ceil(candidates.length / candidatesPerPage)
 
   return (
-    <main style={{ padding: 30 }}>
-      <h1>Company Dashboard</h1>
-      <p>Welcome, {profile.email}</p>
+    <main style={{ minHeight: '100vh', background: '#f1f5f9', padding: 40 }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+        <h1>Company Dashboard</h1>
+        <p style={{ color: '#64748b' }}>Welcome, {profile.email}</p>
 
-      <h2>All Candidates</h2>
-      {candidates.length === 0 ? (
-        <p>No candidates registered yet.</p>
-      ) : (
-        <>
-          {/* ✅ Horizontal row */}
-          <div style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 20
-          }}>
-            {currentCandidates.map(c => (
-              <div key={c.user_id} style={{
-                border: '1px solid #ccc',
-                borderRadius: 8,
-                padding: 15,
-                minWidth: 200,
-                textAlign: 'center'
-              }}>
-                <strong>{c.email}</strong>
-                <div style={{ marginTop: 10 }}>
-                  <button
-                    onClick={() => router.push(`/p/${c.user_id}`)}
-                    style={{
-                      padding: '5px 10px',
-                      borderRadius: 5,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    View Profile
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+        <h2 style={{ marginTop: 30 }}>Candidates</h2>
 
-          {/* ✅ Pagination buttons */}
-          {totalPages > 1 && (
-            <div style={{ marginTop: 20 }}>
+        <div style={grid}>
+          {currentCandidates.map(c => (
+            <div key={c.user_id} style={card}>
+              <strong>{c.email}</strong>
+              <p>Score: {c.score ?? 'N/A'}</p>
               <button
-                onClick={() => setCurrentPage(p => Math.max(p - 1, 0))}
-                disabled={currentPage === 0}
-                style={{ marginRight: 10, padding: '5px 10px', borderRadius: 5 }}
+                style={primaryBtn}
+                onClick={() => router.push(`/p/${c.user_id}`)}
               >
-                Previous
+                View Profile
               </button>
-              <button
-                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages - 1))}
-                disabled={currentPage === totalPages - 1}
-                style={{ padding: '5px 10px', borderRadius: 5 }}
-              >
-                Next
-              </button>
-              <span style={{ marginLeft: 15 }}>
-                Page {currentPage + 1} of {totalPages}
-              </span>
             </div>
-          )}
-        </>
-      )}
+          ))}
+        </div>
 
-      {/* ✅ LOGOUT BUTTON */}
-      <button
-        style={{
-          marginTop: 30,
-          padding: '10px 20px',
-          backgroundColor: '#f44336',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 5,
-          cursor: 'pointer'
-        }}
-        onClick={() => router.push('/logout')}
-      >
-        Logout
-      </button>
+        {totalPages > 1 && (
+          <div style={{ marginTop: 30 }}>
+            <button
+              style={secondaryBtn}
+              disabled={currentPage === 0}
+              onClick={() => setCurrentPage(p => Math.max(p - 1, 0))}
+            >
+              Previous
+            </button>
+            <button
+              style={{ ...secondaryBtn, marginLeft: 10 }}
+              disabled={currentPage === totalPages - 1}
+              onClick={() =>
+                setCurrentPage(p => Math.min(p + 1, totalPages - 1))
+              }
+            >
+              Next
+            </button>
+          </div>
+        )}
+
+        <button
+          style={{ ...dangerBtn, marginTop: 40 }}
+          onClick={() => router.push('/logout')}
+        >
+          Logout
+        </button>
+      </div>
     </main>
   )
+}
+
+const grid = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+  gap: 20
+}
+
+const card = {
+  background: '#fff',
+  padding: 20,
+  borderRadius: 14,
+  boxShadow: '0 8px 25px rgba(0,0,0,0.08)',
+  textAlign: 'center'
+}
+
+const primaryBtn = {
+  marginTop: 10,
+  padding: '8px 16px',
+  background: '#2563eb',
+  color: '#fff',
+  border: 'none',
+  borderRadius: 8,
+  cursor: 'pointer'
+}
+
+const secondaryBtn = {
+  ...primaryBtn,
+  background: '#e5e7eb',
+  color: '#111827'
+}
+
+const dangerBtn = {
+  ...primaryBtn,
+  background: '#dc2626'
 }
