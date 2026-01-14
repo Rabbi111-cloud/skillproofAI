@@ -4,74 +4,132 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 
-// 🔐 ADMIN EMAIL (CHANGE THIS)
 const ADMIN_EMAIL = 'diggingdeep0007@gmail.com'
 
 export default function AdminDashboard() {
   const [profiles, setProfiles] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [adminEmail, setAdminEmail] = useState('')
+  const [adminPassword, setAdminPassword] = useState('')
+  const [needLogin, setNeedLogin] = useState(false)
+
   const router = useRouter()
 
   useEffect(() => {
-    async function loadProfiles() {
+    async function checkSession() {
       setLoading(true)
       setError('')
-      try {
-        // 1️⃣ Ensure user is logged in
-        const { data: authData, error: authError } = await supabase.auth.getUser()
-        if (authError) throw authError
 
-        if (!authData?.user) {
-          setError('You must be logged in as admin.')
+      try {
+        const { data: sessionData } = await supabase.auth.getSession()
+        const user = sessionData?.session?.user
+
+        if (!user) {
+          // no session -> show admin login form
+          setNeedLogin(true)
           return
         }
 
-        // 2️⃣ BLOCK NON-ADMIN USERS
-        if (authData.user.email !== ADMIN_EMAIL) {
+        if (user.email !== ADMIN_EMAIL) {
           setError('Access denied. Not an admin.')
           return
         }
 
-        // 3️⃣ Fetch candidates who completed assessment
+        // fetch candidates with completed assessment
         const { data, error } = await supabase
           .from('profiles')
-          .select('user_id, email, score, breakdown, assessment_completed, updated_at')
+          .select('user_id, email, score, breakdown, assessment_completed')
           .eq('role', 'candidate')
           .eq('assessment_completed', true)
           .order('score', { ascending: false })
 
         if (error) throw error
-
         setProfiles(data || [])
       } catch (err) {
-        console.error('Error loading Admin Dashboard:', err)
-        setError(err.message || 'Error loading Admin Dashboard')
+        setError(err.message || 'Error loading admin dashboard')
       } finally {
         setLoading(false)
       }
     }
 
-    loadProfiles()
+    checkSession()
   }, [])
 
+  async function handleAdminLogin(e) {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+
+    try {
+      if (adminEmail !== ADMIN_EMAIL) {
+        setError('Invalid admin email')
+        setLoading(false)
+        return
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: adminEmail,
+        password: adminPassword
+      })
+
+      if (error) throw error
+
+      // reload page to fetch candidates
+      window.location.reload()
+    } catch (err) {
+      setError(err.message || 'Invalid admin credentials')
+      setLoading(false)
+    }
+  }
+
   if (loading) return <p style={{ padding: 40 }}>Loading admin dashboard...</p>
+
+  if (needLogin) {
+    return (
+      <main style={{ padding: 40 }}>
+        <h2>Admin Login</h2>
+        {error && <p style={{ color: 'red' }}>{error}</p>}
+        <form onSubmit={handleAdminLogin} style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 400 }}>
+          <input
+            type="email"
+            placeholder="Admin Email"
+            value={adminEmail}
+            onChange={e => setAdminEmail(e.target.value)}
+            required
+            style={{ padding: 10, borderRadius: 6, border: '1px solid #ccc' }}
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={adminPassword}
+            onChange={e => setAdminPassword(e.target.value)}
+            required
+            style={{ padding: 10, borderRadius: 6, border: '1px solid #ccc' }}
+          />
+          <button
+            type="submit"
+            style={{
+              padding: 10,
+              borderRadius: 6,
+              border: 'none',
+              background: '#2563eb',
+              color: '#fff',
+              cursor: 'pointer'
+            }}
+          >
+            Login
+          </button>
+        </form>
+      </main>
+    )
+  }
 
   if (error)
     return (
       <div style={{ padding: 40 }}>
-        <p style={{ color: 'red', marginBottom: 20 }}>{error}</p>
-        <button
-          onClick={() => router.push('/')}
-          style={{
-            padding: '10px 18px',
-            borderRadius: 8,
-            border: 'none',
-            background: '#2563eb',
-            color: '#fff',
-            cursor: 'pointer'
-          }}
-        >
+        <p style={{ color: 'red' }}>{error}</p>
+        <button onClick={() => router.push('/')} style={{ padding: 10, borderRadius: 6, background: '#2563eb', color: '#fff', border: 'none' }}>
           Go Home
         </button>
       </div>
@@ -84,11 +142,7 @@ export default function AdminDashboard() {
       {profiles.length === 0 ? (
         <p>No candidates have completed assessments yet.</p>
       ) : (
-        <table
-          border="1"
-          cellPadding="10"
-          style={{ marginTop: 20, borderCollapse: 'collapse', width: '100%' }}
-        >
+        <table border="1" cellPadding="10" style={{ marginTop: 20, borderCollapse: 'collapse', width: '100%' }}>
           <thead style={{ background: '#f3f4f6' }}>
             <tr>
               <th>Email</th>
@@ -115,12 +169,7 @@ export default function AdminDashboard() {
                   </td>
                   <td>{level}</td>
                   <td>
-                    <a
-                      href={`/p/${profile.user_id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ color: '#2563eb', textDecoration: 'underline' }}
-                    >
+                    <a href={`/p/${profile.user_id}`} target="_blank" rel="noreferrer">
                       View Profile
                     </a>
                   </td>
