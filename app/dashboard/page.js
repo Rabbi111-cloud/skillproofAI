@@ -8,31 +8,33 @@ export default function CandidateDashboard() {
   const router = useRouter()
 
   const [profile, setProfile] = useState(null)
-  const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     async function loadDashboard() {
       try {
-        // 1️⃣ GET AUTH USER
+        // 1️⃣ Auth check
         const { data: authData } = await supabase.auth.getUser()
         if (!authData?.user) {
           router.replace('/login')
           return
         }
+
         const userId = authData.user.id
 
-        // 2️⃣ GET PROFILE
-        const { data: profileData, error: profileError } = await supabase
+        // 2️⃣ Fetch profile (THIS is the source of truth)
+        const { data: profileData, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('user_id', userId)
           .single()
 
-        if (profileError || !profileData) throw new Error('Profile not found')
+        if (error || !profileData) {
+          throw new Error('Profile not found')
+        }
 
-        // 3️⃣ BLOCK COMPANY USERS
+        // 3️⃣ Block companies
         if (profileData.role !== 'candidate') {
           router.replace('/company/dashboard')
           return
@@ -40,18 +42,8 @@ export default function CandidateDashboard() {
 
         setProfile(profileData)
 
-        // 4️⃣ FETCH ASSESSMENT RESULT
-        const { data: resultData } = await supabase
-          .from('results')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle()
-
-        setResult(resultData || null)
-
       } catch (err) {
-        console.error('[Candidate Dashboard Error]', err)
-        setError(err.message || 'Something went wrong')
+        setError(err.message)
       } finally {
         setLoading(false)
       }
@@ -67,7 +59,6 @@ export default function CandidateDashboard() {
       <div style={{ padding: 30 }}>
         <h2>Error</h2>
         <p style={{ color: 'red' }}>{error}</p>
-        <button onClick={() => router.replace('/login')}>Login</button>
       </div>
     )
   }
@@ -77,12 +68,14 @@ export default function CandidateDashboard() {
       <h1>Candidate Dashboard</h1>
       <p>Welcome, {profile.email}</p>
 
-      {result ? (
+      {/* ✅ ASSESSMENT COMPLETED */}
+      {profile.score !== null ? (
         <>
           <h2>Assessment Completed ✅</h2>
-          <p><strong>Score:</strong> {result.score}%</p>
-          <p><strong>Skill Breakdown:</strong></p>
-          <pre>{JSON.stringify(result.breakdown, null, 2)}</pre>
+          <p><strong>Score:</strong> {profile.score}%</p>
+
+          <h3>Skill Breakdown</h3>
+          <pre>{JSON.stringify(profile.breakdown, null, 2)}</pre>
 
           <button onClick={() => router.push(`/p/${profile.user_id}`)}>
             View Profile
@@ -94,13 +87,6 @@ export default function CandidateDashboard() {
           >
             Share Profile
           </button>
-
-          <button
-            style={{ marginLeft: 10 }}
-            onClick={() => router.replace('/dashboard')}
-          >
-            Back to Dashboard
-          </button>
         </>
       ) : (
         <button onClick={() => router.push('/assessment/1')}>
@@ -108,21 +94,17 @@ export default function CandidateDashboard() {
         </button>
       )}
 
-      {/* ✅ LOGOUT BUTTON */}
+      <hr style={{ margin: '30px 0' }} />
+
       <button
-        style={{
-          marginTop: 20,
-          padding: '10px 20px',
-          backgroundColor: '#f44336',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 5,
-          cursor: 'pointer'
+        onClick={async () => {
+          await supabase.auth.signOut()
+          router.replace('/')
         }}
-        onClick={() => router.push('/logout')}
       >
         Logout
       </button>
     </main>
   )
 }
+
