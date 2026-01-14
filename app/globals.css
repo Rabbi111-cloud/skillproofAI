@@ -1,0 +1,21 @@
+/* LIGHT MODE */
+:root {
+  --bg: #f8fafc;
+  --text: #020617;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --primary: #2563eb;
+  --secondary: #e5e7eb;
+  --danger: #dc2626;
+}
+
+/* DARK MODE */
+[data-theme='dark'] {
+  --bg: #020617;
+  --text: #e5e7eb;
+  --card: #0f172a;
+  --border: #1e293b;
+  --primary: #3b82f6;
+  --secondary: #1e293b;
+  --danger: #ef4444;
+}
