@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../../lib/supabaseClient'
+import Sidebar from '../../components/Sidebar'
 
 export default function CompanyDashboard() {
   const router = useRouter()
@@ -80,59 +81,67 @@ export default function CompanyDashboard() {
   const totalPages = Math.ceil(candidates.length / candidatesPerPage)
 
   return (
-    <main style={{ minHeight: '100vh', background: '#f1f5f9', padding: 40 }}>
-      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-        <h1>Company Dashboard</h1>
-        <p style={{ color: '#64748b' }}>Welcome, {profile.email}</p>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+      {/* ✅ SIDEBAR */}
+      <Sidebar role="company" />
 
-        <h2 style={{ marginTop: 30 }}>Candidates</h2>
+      {/* ✅ MAIN CONTENT */}
+      <main style={{ flex: 1, padding: 40 }}>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <h1>Company Dashboard</h1>
+          <p style={{ color: '#64748b' }}>Welcome, {profile.email}</p>
 
-        <div style={grid}>
-          {currentCandidates.map(c => (
-            <div key={c.user_id} style={card}>
-              <strong>{c.email}</strong>
-              <p>Score: {c.score ?? 'N/A'}</p>
+          <h2 style={{ marginTop: 30 }}>Candidates</h2>
+
+          <div style={grid}>
+            {currentCandidates.map(c => (
+              <div key={c.user_id} style={card}>
+                <strong>{c.email}</strong>
+                <p>Score: {c.score ?? 'N/A'}</p>
+                <button
+                  style={primaryBtn}
+                  onClick={() => router.push(`/p/${c.user_id}`)}
+                >
+                  View Profile
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div style={{ marginTop: 30 }}>
               <button
-                style={primaryBtn}
-                onClick={() => router.push(`/p/${c.user_id}`)}
+                style={secondaryBtn}
+                disabled={currentPage === 0}
+                onClick={() => setCurrentPage(p => Math.max(p - 1, 0))}
               >
-                View Profile
+                Previous
+              </button>
+              <button
+                style={{ ...secondaryBtn, marginLeft: 10 }}
+                disabled={currentPage === totalPages - 1}
+                onClick={() =>
+                  setCurrentPage(p => Math.min(p + 1, totalPages - 1))
+                }
+              >
+                Next
               </button>
             </div>
-          ))}
+          )}
+
+          <button
+            style={{ ...dangerBtn, marginTop: 40 }}
+            onClick={() => router.push('/logout')}
+          >
+            Logout
+          </button>
         </div>
-
-        {totalPages > 1 && (
-          <div style={{ marginTop: 30 }}>
-            <button
-              style={secondaryBtn}
-              disabled={currentPage === 0}
-              onClick={() => setCurrentPage(p => Math.max(p - 1, 0))}
-            >
-              Previous
-            </button>
-            <button
-              style={{ ...secondaryBtn, marginLeft: 10 }}
-              disabled={currentPage === totalPages - 1}
-              onClick={() =>
-                setCurrentPage(p => Math.min(p + 1, totalPages - 1))
-              }
-            >
-              Next
-            </button>
-          </div>
-        )}
-
-        <button
-          style={{ ...dangerBtn, marginTop: 40 }}
-          onClick={() => router.push('/logout')}
-        >
-          Logout
-        </button>
-      </div>
-    </main>
+      </main>
+    </div>
   )
 }
+
+/* ===== STYLES ===== */
 
 const grid = {
   display: 'grid',
@@ -141,7 +150,7 @@ const grid = {
 }
 
 const card = {
-  background: '#fff',
+  background: 'var(--card)',
   padding: 20,
   borderRadius: 14,
   boxShadow: '0 8px 25px rgba(0,0,0,0.08)',
@@ -151,7 +160,7 @@ const card = {
 const primaryBtn = {
   marginTop: 10,
   padding: '8px 16px',
-  background: '#2563eb',
+  background: 'var(--primary)',
   color: '#fff',
   border: 'none',
   borderRadius: 8,
@@ -160,11 +169,11 @@ const primaryBtn = {
 
 const secondaryBtn = {
   ...primaryBtn,
-  background: '#e5e7eb',
-  color: '#111827'
+  background: 'var(--secondary)',
+  color: 'var(--text)'
 }
 
 const dangerBtn = {
   ...primaryBtn,
-  background: '#dc2626'
+  background: 'var(--danger)'
 }
