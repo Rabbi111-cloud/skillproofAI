@@ -10,33 +10,57 @@ export default function ResultPage() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    async function submitResult() {
+    async function submitAssessment() {
       try {
-        // 1️⃣ Get answers
-        const stored = JSON.parse(localStorage.getItem('answers'))
-        if (!stored) throw new Error('No answers found')
+        // 1️⃣ Load answers
+        const storedAnswers =
+          JSON.parse(localStorage.getItem('answers')) || {}
 
-        // 2️⃣ Score calculation
+        if (Object.keys(storedAnswers).length === 0) {
+          throw new Error('No answers found')
+        }
+
+        // 2️⃣ Calculate score + skill stats
         let correctCount = 0
-        const breakdown = {}
+        const skillStats = {}
 
         questions.forEach(q => {
-          const correct = q.answer.trim().toLowerCase()
-          const given = (stored[q.id] || '').trim().toLowerCase()
-          const isCorrect = given === correct
+          const expected = (q.correct || '')
+            .trim()
+            .toLowerCase()
+
+          const given = (storedAnswers[q.id] || '')
+            .trim()
+            .toLowerCase()
+
+          const isCorrect =
+            expected.length > 0 && given === expected
 
           if (isCorrect) correctCount++
 
-          breakdown[q.id] = {
-            correct: isCorrect
+          if (!skillStats[q.skill]) {
+            skillStats[q.skill] = { correct: 0, total: 0 }
           }
+
+          skillStats[q.skill].total += 1
+          if (isCorrect) skillStats[q.skill].correct += 1
         })
 
         const score = Math.round(
           (correctCount / questions.length) * 100
         )
 
-        // 3️⃣ Get auth user (GUARDED)
+        // 3️⃣ Build skill breakdown (%)
+        const skillBreakdown = {}
+        Object.keys(skillStats).forEach(skill => {
+          skillBreakdown[skill] = Math.round(
+            (skillStats[skill].correct /
+              skillStats[skill].total) *
+              100
+          )
+        })
+
+        // 4️⃣ Get authenticated user
         const { data: authData, error: authError } =
           await supabase.auth.getUser()
 
@@ -46,12 +70,12 @@ export default function ResultPage() {
 
         const userId = authData.user.id
 
-        // 4️⃣ Update profile (GUARDED)
+        // 5️⃣ Save result to profile
         const { error: updateError } = await supabase
           .from('profiles')
           .update({
             score,
-            breakdown,
+            skill_breakdown: skillBreakdown,
             assessment_completed: true,
             completed_at: new Date().toISOString()
           })
@@ -61,25 +85,24 @@ export default function ResultPage() {
           throw updateError
         }
 
-        // 5️⃣ Cleanup
+        // 6️⃣ Cleanup + redirect
         localStorage.removeItem('answers')
-
-        // 6️⃣ Redirect
         router.replace('/dashboard')
 
       } catch (err) {
-        console.error('Assessment submit failed:', err)
-        setError(err.message)
+        console.error('[ASSESSMENT SUBMIT ERROR]', err)
+        setError(err.message || 'Failed to submit assessment')
       }
     }
 
-    submitResult()
+    submitAssessment()
   }, [router])
 
+  // 🧨 Error UI
   if (error) {
     return (
       <div style={{ padding: 30 }}>
-        <h2>Error submitting assessment</h2>
+        <h2>Assessment Submission Failed</h2>
         <p style={{ color: 'red' }}>{error}</p>
         <button onClick={() => router.replace('/dashboard')}>
           Go to Dashboard
@@ -88,5 +111,6 @@ export default function ResultPage() {
     )
   }
 
+  // ⏳ Loading state
   return <p style={{ padding: 30 }}>Submitting result…</p>
 }
