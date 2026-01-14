@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
-import Sidebar from '../../components/Sidebar'
+import Sidebar from '../components/Sidebar'
 
 export default function CandidateDashboard() {
   const router = useRouter()
