@@ -33,6 +33,7 @@ export default function Home() {
           Prove skills. Hire smarter.
         </p>
 
+        {/* ================= MAIN CARDS ================= */}
         <div
           style={{
             display: 'grid',
@@ -68,6 +69,36 @@ export default function Home() {
               Login
             </button>
           </div>
+        </div>
+
+        {/* ================= ADMIN ACCESS ================= */}
+        <div
+          style={{
+            marginTop: 40,
+            paddingTop: 20,
+            borderTop: '1px solid #e5e7eb',
+            textAlign: 'center'
+          }}
+        >
+          <p style={{ fontSize: 13, color: '#6b7280' }}>
+            Admin access only
+          </p>
+
+          <button
+            onClick={() => router.push('/admin')}
+            style={{
+              marginTop: 8,
+              padding: '10px 18px',
+              borderRadius: 20,
+              border: '1px dashed #9ca3af',
+              background: 'transparent',
+              color: '#374151',
+              cursor: 'pointer',
+              fontSize: 14
+            }}
+          >
+            Admin Dashboard
+          </button>
         </div>
       </div>
     </main>
