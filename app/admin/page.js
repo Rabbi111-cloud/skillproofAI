@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '../../lib/supabaseClient'
+import { supabase } from '../lib/supabaseClient'
 
-// 🔐 ADMIN EMAIL
 const ADMIN_EMAIL = 'diggingdeep0007@gmail.com'
 
 export default function AdminDashboard() {
@@ -18,7 +17,6 @@ export default function AdminDashboard() {
       try {
         const res = await supabase.auth.getUser()
 
-        // Not logged in
         if (!res?.data?.user) {
           router.replace('/')
           return
@@ -26,13 +24,11 @@ export default function AdminDashboard() {
 
         const user = res.data.user
 
-        // Not admin
         if (user.email !== ADMIN_EMAIL) {
           router.replace('/dashboard')
           return
         }
 
-        // Fetch profiles
         const { data, error } = await supabase
           .from('profiles')
           .select('user_id, email, score, updated_at')
@@ -40,7 +36,12 @@ export default function AdminDashboard() {
 
         if (error) throw error
 
-        setProfiles(data || [])
+        // 🔐 FILTER BAD ROWS (CRITICAL FIX)
+        const safeProfiles = (data || []).filter(
+          p => p?.user_id && p?.email
+        )
+
+        setProfiles(safeProfiles)
       } catch (err) {
         console.error(err)
         setError('Failed to load admin dashboard')
@@ -70,7 +71,7 @@ export default function AdminDashboard() {
       <h1>Admin Dashboard</h1>
 
       {profiles.length === 0 ? (
-        <p>No candidates yet.</p>
+        <p>No valid candidate profiles yet.</p>
       ) : (
         <table border="1" cellPadding="10" style={{ marginTop: 20 }}>
           <thead>
@@ -86,7 +87,11 @@ export default function AdminDashboard() {
                 <td>{p.email}</td>
                 <td>{p.score ?? 'N/A'}</td>
                 <td>
-                  <a href={`/p/${p.user_id}`} target="_blank" rel="noreferrer">
+                  <a
+                    href={`/p/${p.user_id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     View
                   </a>
                 </td>
