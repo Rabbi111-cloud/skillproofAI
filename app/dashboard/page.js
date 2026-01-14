@@ -4,27 +4,13 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
 import Sidebar from '../components/Sidebar'
+import ThemeToggle from '../components/ThemeToggle'
 
 export default function CandidateDashboard() {
   const router = useRouter()
-
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-
-  const [theme, setTheme] = useState('light')
-
-  // Load saved theme
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme')
-    if (savedTheme) setTheme(savedTheme)
-  }, [])
-
-  // Apply theme
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-    localStorage.setItem('theme', theme)
-  }, [theme])
 
   useEffect(() => {
     async function loadDashboard() {
@@ -36,7 +22,6 @@ export default function CandidateDashboard() {
         }
 
         const userId = authData.user.id
-
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
@@ -62,44 +47,21 @@ export default function CandidateDashboard() {
   }, [router])
 
   if (loading) return <p style={{ padding: 40 }}>Loading…</p>
-
-  if (error) {
+  if (error)
     return (
       <div style={{ padding: 40 }}>
         <p style={{ color: 'red' }}>{error}</p>
         <button onClick={() => router.replace('/login')}>Login</button>
       </div>
     )
-  }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
-      {/* ✅ SIDEBAR */}
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
       <Sidebar role="candidate" />
-
-      {/* ✅ MAIN CONTENT */}
       <main style={{ flex: 1, padding: 40 }}>
-        {/* ✅ THEME TOGGLE */}
-        <button
-          onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-          style={{
-            position: 'fixed',
-            top: 20,
-            right: 20,
-            padding: '8px 14px',
-            borderRadius: 20,
-            border: 'none',
-            cursor: 'pointer',
-            background: 'var(--card)',
-            color: 'var(--text)',
-            boxShadow: '0 5px 15px rgba(0,0,0,0.15)',
-            zIndex: 999
-          }}
-        >
-          {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
-        </button>
+        <ThemeToggle />
 
-        <div style={container}>
+        <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <h1>Candidate Dashboard</h1>
           <p style={{ color: '#64748b' }}>Welcome, {profile.email}</p>
 
@@ -114,35 +76,15 @@ export default function CandidateDashboard() {
               </pre>
 
               <div style={{ marginTop: 20 }}>
-                <button
-                  style={primaryBtn}
-                  onClick={() => router.push(`/p/${profile.user_id}`)}
-                >
-                  View Profile
-                </button>
-                <button
-                  style={{ ...secondaryBtn, marginLeft: 10 }}
-                  onClick={() => window.open(`/p/${profile.user_id}`, '_blank')}
-                >
-                  Share Profile
-                </button>
+                <button style={primaryBtn} onClick={() => router.push(`/p/${profile.user_id}`)}>View Profile</button>
+                <button style={{ ...secondaryBtn, marginLeft: 10 }} onClick={() => window.open(`/p/${profile.user_id}`, '_blank')}>Share Profile</button>
               </div>
             </div>
           ) : (
-            <button
-              style={primaryBtn}
-              onClick={() => router.push('/assessment/1')}
-            >
-              Take Assessment
-            </button>
+            <button style={primaryBtn} onClick={() => router.push('/assessment/1')}>Take Assessment</button>
           )}
 
-          <button
-            style={{ ...dangerBtn, marginTop: 30 }}
-            onClick={() => router.push('/logout')}
-          >
-            Logout
-          </button>
+          <button style={{ ...dangerBtn, marginTop: 30 }} onClick={() => router.push('/logout')}>Logout</button>
         </div>
       </main>
     </div>
@@ -150,46 +92,9 @@ export default function CandidateDashboard() {
 }
 
 /* ===== STYLES ===== */
-const container = { maxWidth: 900, margin: '0 auto' }
-
-const card = {
-  background: 'var(--card)',
-  padding: 30,
-  borderRadius: 16,
-  boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-  marginTop: 30
-}
-
-const score = {
-  fontSize: 42,
-  fontWeight: 'bold',
-  color: 'var(--primary)',
-  margin: '20px 0'
-}
-
-const pre = {
-  background: '#020617',
-  color: '#e5e7eb',
-  padding: 15,
-  borderRadius: 8
-}
-
-const primaryBtn = {
-  padding: '10px 18px',
-  background: 'var(--primary)',
-  color: '#fff',
-  border: 'none',
-  borderRadius: 8,
-  cursor: 'pointer'
-}
-
-const secondaryBtn = {
-  ...primaryBtn,
-  background: '#e5e7eb',
-  color: 'var(--text)'
-}
-
-const dangerBtn = {
-  ...primaryBtn,
-  background: 'var(--danger)'
-}
+const card = { background: 'var(--card)', padding: 30, borderRadius: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.1)', marginTop: 30 }
+const score = { fontSize: 42, fontWeight: 'bold', color: 'var(--primary)', margin: '20px 0' }
+const pre = { background: '#020617', color: '#e5e7eb', padding: 15, borderRadius: 8 }
+const primaryBtn = { padding: '10px 18px', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }
+const secondaryBtn = { ...primaryBtn, background: 'var(--secondary)', color: 'var(--text)' }
+const dangerBtn = { ...primaryBtn, background: 'var(--danger)' }
