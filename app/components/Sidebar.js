@@ -5,58 +5,53 @@ import { useRouter } from 'next/navigation'
 export default function Sidebar({ role }) {
   const router = useRouter()
 
+  // Links for candidate vs company
+  const links =
+    role === 'candidate'
+      ? [
+          { label: 'Dashboard', path: '/dashboard' },
+          { label: 'Assessment', path: '/assessment/1' },
+          { label: 'Logout', path: '/logout' }
+        ]
+      : [
+          { label: 'Dashboard', path: '/company/dashboard' },
+          { label: 'Logout', path: '/logout' }
+        ]
+
   return (
-    <aside style={sidebar}>
-      <h2 style={{ marginBottom: 30 }}>SKILLPROOF</h2>
+    <aside
+      style={{
+        width: 220,
+        minHeight: '100vh',
+        background: 'var(--card)',
+        padding: 20,
+        boxShadow: '2px 0 10px rgba(0,0,0,0.1)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10
+      }}
+    >
+      <h2 style={{ marginBottom: 20, color: 'var(--primary)' }}>
+        {role === 'candidate' ? 'Candidate' : 'Company'}
+      </h2>
 
-      {role === 'candidate' && (
-        <>
-          <button style={navBtn} onClick={() => router.push('/dashboard')}>
-            Dashboard
-          </button>
-          <button style={navBtn} onClick={() => router.push('/assessment/1')}>
-            Assessment
-          </button>
-        </>
-      )}
-
-      {role === 'company' && (
-        <>
-          <button
-            style={navBtn}
-            onClick={() => router.push('/company/dashboard')}
-          >
-            Candidates
-          </button>
-        </>
-      )}
-
-      <button
-        style={{ ...navBtn, marginTop: 'auto', color: 'var(--danger)' }}
-        onClick={() => router.push('/logout')}
-      >
-        Logout
-      </button>
+      {links.map(link => (
+        <button
+          key={link.label}
+          onClick={() => router.push(link.path)}
+          style={{
+            padding: '10px 12px',
+            borderRadius: 8,
+            border: 'none',
+            background: 'var(--primary)',
+            color: '#fff',
+            cursor: 'pointer',
+            textAlign: 'left'
+          }}
+        >
+          {link.label}
+        </button>
+      ))}
     </aside>
   )
-}
-
-const sidebar = {
-  width: 240,
-  minHeight: '100vh',
-  background: 'var(--card)',
-  borderRight: '1px solid var(--border)',
-  padding: 20,
-  display: 'flex',
-  flexDirection: 'column'
-}
-
-const navBtn = {
-  background: 'transparent',
-  border: 'none',
-  color: 'var(--text)',
-  padding: '10px 0',
-  textAlign: 'left',
-  cursor: 'pointer',
-  fontSize: 16
 }
