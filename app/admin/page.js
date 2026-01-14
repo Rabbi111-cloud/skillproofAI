@@ -15,14 +15,15 @@ export default function AdminDashboard() {
   useEffect(() => {
     async function loadAdmin() {
       try {
-        // 1️⃣ Get the logged-in user
-        const { data: authData, error: authError } = await supabase.auth.getUser()
-        if (authError) throw new Error('Supabase auth error: ' + authError.message)
+        // 1️⃣ Get the current session
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+        if (sessionError) throw new Error('Supabase session error: ' + sessionError.message)
 
-        const user = authData?.user
+        const user = sessionData?.session?.user
         if (!user) {
-          setError('No user is currently logged in.')
-          console.error('No user is logged in:', authData)
+          setError('No active session. Please log in.')
+          console.error('No session:', sessionData)
+          router.replace('/') // redirect to login/home
           return
         }
 
@@ -34,7 +35,7 @@ export default function AdminDashboard() {
           return
         }
 
-        // 3️⃣ Fetch all profiles
+        // 3️⃣ Fetch all candidate profiles
         const { data, error: profilesError } = await supabase
           .from('profiles')
           .select('user_id, email, score, breakdown')
