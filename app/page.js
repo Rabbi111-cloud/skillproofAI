@@ -1,9 +1,29 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+
+const ADMIN_EMAIL = 'diggingdeep0007@gmail.com'
+const ADMIN_PASSWORD = 'supersecret' // You can change this
 
 export default function Home() {
   const router = useRouter()
+  const [showAdminLogin, setShowAdminLogin] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+
+  const handleAdminLogin = (e) => {
+    e.preventDefault()
+    setError('')
+
+    // Check credentials
+    if (email.trim().toLowerCase() === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+      router.push('/admin')
+    } else {
+      setError('Invalid admin credentials.')
+    }
+  }
 
   return (
     <main
@@ -56,16 +76,10 @@ export default function Home() {
           {/* Company */}
           <div style={cardStyle}>
             <h2>Company</h2>
-            <button
-              style={primaryBtn}
-              onClick={() => router.push('/company/signup')}
-            >
+            <button style={primaryBtn} onClick={() => router.push('/company/signup')}>
               Signup
             </button>
-            <button
-              style={secondaryBtn}
-              onClick={() => router.push('/company/login')}
-            >
+            <button style={secondaryBtn} onClick={() => router.push('/company/login')}>
               Login
             </button>
           </div>
@@ -84,21 +98,40 @@ export default function Home() {
             Admin access only
           </p>
 
-          <button
-            onClick={() => router.push('/admin')}
-            style={{
-              marginTop: 8,
-              padding: '10px 18px',
-              borderRadius: 20,
-              border: '1px dashed #9ca3af',
-              background: 'transparent',
-              color: '#374151',
-              cursor: 'pointer',
-              fontSize: 14
-            }}
-          >
-            Admin Dashboard
-          </button>
+          {!showAdminLogin ? (
+            <button
+              onClick={() => setShowAdminLogin(true)}
+              style={adminBtnStyle}
+            >
+              Admin Dashboard
+            </button>
+          ) : (
+            <form
+              onSubmit={handleAdminLogin}
+              style={{ marginTop: 15, display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}
+            >
+              <input
+                type="email"
+                placeholder="Admin Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                style={{ padding: 10, width: 250, borderRadius: 6 }}
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={{ padding: 10, width: 250, borderRadius: 6 }}
+              />
+              <button type="submit" style={{ padding: 10, width: 100, borderRadius: 6, cursor: 'pointer' }}>
+                Login
+              </button>
+              {error && <p style={{ color: 'red' }}>{error}</p>}
+            </form>
+          )}
         </div>
       </div>
     </main>
@@ -128,4 +161,15 @@ const secondaryBtn = {
   ...primaryBtn,
   background: '#e5e7eb',
   color: '#111827'
+}
+
+const adminBtnStyle = {
+  marginTop: 8,
+  padding: '10px 18px',
+  borderRadius: 20,
+  border: '1px dashed #9ca3af',
+  background: 'transparent',
+  color: '#374151',
+  cursor: 'pointer',
+  fontSize: 14
 }
