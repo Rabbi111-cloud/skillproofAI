@@ -6,7 +6,7 @@ import { supabase } from '../../../lib/supabaseClient'
 import { questions } from '../../assessment/questions'
 
 export default function ProfilePage() {
-  const { id } = useParams()
+  const { id } = useParams() // this is the user's auth.id
   const [profile, setProfile] = useState(null)
   const [skills, setSkills] = useState({})
   const [loading, setLoading] = useState(true)
@@ -15,91 +15,113 @@ export default function ProfilePage() {
   useEffect(() => {
     async function loadProfile() {
       try {
-        if (!id) return
+        setLoading(true)
+        setError('')
 
-        const { data: profileData, error } = await supabase
+        if (!id) {
+          setError('Invalid profile ID')
+          return
+        }
+
+        // 1️⃣ Fetch profile by user_id
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('user_id', id)
           .single()
 
-        if (error) throw error
+        if (profileError || !profileData) {
+          throw new Error('Profile not found')
+        }
+
         setProfile(profileData)
 
+        // 2️⃣ Determine skills
         let skillPercentages = profileData.skills || {}
 
-        if (!Object.keys(skillPercentages).length) {
-          const { data: submissions } = await supabase
+        // If no skill breakdown, compute from submissions
+        if (!skillPercentages || Object.keys(skillPercentages).length === 0) {
+          const { data: submissions, error: subError } = await supabase
             .from('submissions')
             .select('question_id, is_correct')
-            .eq('user_id', id)
+            .eq('user_id', profileData.user_id)
 
-          const stats = {}
-          submissions?.forEach(s => {
-            const q = questions.find(q => q.id == s.question_id)
-            if (!q) return
-            stats[q.skill] ??= { total: 0, correct: 0 }
-            stats[q.skill].total++
-            if (s.is_correct) stats[q.skill].correct++
-          })
+          if (!subError && submissions?.length) {
+            const skillStats = {}
 
-          Object.entries(stats).forEach(([k, v]) => {
-            skillPercentages[k] = Math.round((v.correct / v.total) * 100)
-          })
+            submissions.forEach(sub => {
+              const q = questions.find(
+                qItem => String(qItem.id) === String(sub.question_id)
+              )
+              if (!q) return
+
+              const skill = q.skill || 'Unknown'
+              if (!skillStats[skill]) skillStats[skill] = { total: 0, correct: 0 }
+
+              skillStats[skill].total += 1
+              if (sub.is_correct) skillStats[skill].correct += 1
+            })
+
+            skillPercentages = {}
+            Object.entries(skillStats).forEach(([skill, stat]) => {
+              skillPercentages[skill] = Math.round((stat.correct / stat.total) * 100)
+            })
+
+            // ✅ Optionally update profile in Supabase with computed skills
+            await supabase
+              .from('profiles')
+              .update({ skills: skillPercentages })
+              .eq('user_id', profileData.user_id)
+          } else {
+            skillPercentages = {} // fallback
+          }
         }
 
         setSkills(skillPercentages)
-      } catch {
-        setError('Failed to load profile')
+      } catch (err) {
+        console.error('PROFILE PAGE ERROR:', err)
+        setError(err.message || 'Failed to load profile')
       } finally {
         setLoading(false)
       }
     }
 
-    loadProfile()
+    if (id) loadProfile()
   }, [id])
 
-  if (loading) return <p style={{ padding: 40 }}>Loading…</p>
-  if (error) return <p style={{ padding: 40, color: 'red' }}>{error}</p>
+  if (loading) return <p style={{ padding: 30 }}>Loading profile...</p>
+  if (error) return <p style={{ padding: 30, color: 'red' }}>{error}</p>
+  if (!profile) return null
+
+  const { email, score } = profile
+
+  // Determine level
+  let level = 'Very Bad'
+  if (score >= 80) level = 'Excellent'
+  else if (score >= 60) level = 'Good'
+  else if (score >= 40) level = 'Average'
 
   return (
-    <main style={{ minHeight: '100vh', background: '#f8fafc', padding: 40 }}>
-      <div style={card}>
-        <h2>Candidate Profile</h2>
-        <p><strong>Email:</strong> {profile.email}</p>
-        <p><strong>Score:</strong> {profile.score}%</p>
+    <div style={{ padding: 30 }}>
+      <h2>Candidate Profile</h2>
+      <p><strong>Email:</strong> {email}</p>
+      <p><strong>Score:</strong> {score ?? 'N/A'}</p>
+      <p><strong>Level:</strong> {level}</p>
 
-        <h3 style={{ marginTop: 20 }}>Skills</h3>
-        {Object.entries(skills).map(([skill, percent]) => (
-          <div key={skill} style={{ marginBottom: 10 }}>
-            <strong>{skill}</strong>
-            <div style={barBg}>
-              <div style={{ ...barFill, width: `${percent}%` }} />
-            </div>
-          </div>
-        ))}
-      </div>
-    </main>
+      {Object.keys(skills).length > 0 ? (
+        <div style={{ marginTop: 20 }}>
+          <h3>Skill Breakdown</h3>
+          <ul>
+            {Object.entries(skills).map(([skill, percent]) => (
+              <li key={skill}>
+                <strong>{skill}</strong>: {percent}%
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p>No skill breakdown available</p>
+      )}
+    </div>
   )
-}
-
-const card = {
-  maxWidth: 700,
-  margin: '0 auto',
-  background: '#fff',
-  padding: 30,
-  borderRadius: 16,
-  boxShadow: '0 10px 30px rgba(0,0,0,0.1)'
-}
-
-const barBg = {
-  height: 10,
-  background: '#e5e7eb',
-  borderRadius: 6,
-  overflow: 'hidden'
-}
-
-const barFill = {
-  height: '100%',
-  background: '#2563eb'
 }
