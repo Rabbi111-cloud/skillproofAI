@@ -2,127 +2,104 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { useRouter } from 'next/navigation'
 
-// 🔐 HARD-CODED ADMIN CREDENTIALS
+// 🔐 ADMIN EMAIL (CHANGE THIS)
 const ADMIN_EMAIL = 'diggingdeep0007@gmail.com'
-const ADMIN_PASSWORD = 'supersecret' // optional password check
 
 export default function AdminDashboard() {
-  const [loggedIn, setLoggedIn] = useState(false)
-  const [loginEmail, setLoginEmail] = useState('')
-  const [loginPassword, setLoginPassword] = useState('')
-  const [loginError, setLoginError] = useState('')
   const [profiles, setProfiles] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const router = useRouter()
 
-  // Fetch candidate profiles after successful login
-  const loadProfiles = async () => {
-    setLoading(true)
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('user_id, email, score, breakdown, updated_at')
-        .order('score', { ascending: false })
+  useEffect(() => {
+    async function loadProfiles() {
+      setLoading(true)
+      setError('')
+      try {
+        // 1️⃣ Ensure user is logged in
+        const { data: authData, error: authError } = await supabase.auth.getUser()
+        if (authError) throw authError
 
-      if (error) throw error
-      setProfiles(data || [])
-    } catch (err) {
-      console.error('Error fetching candidates:', err.message)
-    } finally {
-      setLoading(false)
+        if (!authData?.user) {
+          setError('You must be logged in as admin.')
+          return
+        }
+
+        // 2️⃣ BLOCK NON-ADMIN USERS
+        if (authData.user.email !== ADMIN_EMAIL) {
+          setError('Access denied. Not an admin.')
+          return
+        }
+
+        // 3️⃣ Fetch candidates who completed assessment
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('user_id, email, score, breakdown, assessment_completed, updated_at')
+          .eq('role', 'candidate')
+          .eq('assessment_completed', true)
+          .order('score', { ascending: false })
+
+        if (error) throw error
+
+        setProfiles(data || [])
+      } catch (err) {
+        console.error('Error loading Admin Dashboard:', err)
+        setError(err.message || 'Error loading Admin Dashboard')
+      } finally {
+        setLoading(false)
+      }
     }
-  }
 
-  const handleLogin = (e) => {
-    e.preventDefault()
-    setLoginError('')
-
-    if (loginEmail.toLowerCase() !== ADMIN_EMAIL) {
-      setLoginError('Invalid admin credentials.')
-      return
-    }
-
-    if (ADMIN_PASSWORD && loginPassword !== ADMIN_PASSWORD) {
-      setLoginError('Invalid admin credentials.')
-      return
-    }
-
-    setLoggedIn(true)
     loadProfiles()
-  }
+  }, [])
 
-  if (!loggedIn) {
-    // Show login form
+  if (loading) return <p style={{ padding: 40 }}>Loading admin dashboard...</p>
+
+  if (error)
     return (
-      <main style={{ padding: 40, maxWidth: 500, margin: '0 auto' }}>
-        <h2>Admin Login</h2>
-        {loginError && <p style={{ color: 'red' }}>{loginError}</p>}
-        <form
-          onSubmit={handleLogin}
-          style={{ display: 'flex', flexDirection: 'column', gap: 15 }}
+      <div style={{ padding: 40 }}>
+        <p style={{ color: 'red', marginBottom: 20 }}>{error}</p>
+        <button
+          onClick={() => router.push('/')}
+          style={{
+            padding: '10px 18px',
+            borderRadius: 8,
+            border: 'none',
+            background: '#2563eb',
+            color: '#fff',
+            cursor: 'pointer'
+          }}
         >
-          <input
-            type="email"
-            placeholder="Admin Email"
-            value={loginEmail}
-            onChange={(e) => setLoginEmail(e.target.value)}
-            required
-            style={{ padding: 12, borderRadius: 8, border: '1px solid #ccc' }}
-          />
-          {ADMIN_PASSWORD && (
-            <input
-              type="password"
-              placeholder="Password"
-              value={loginPassword}
-              onChange={(e) => setLoginPassword(e.target.value)}
-              required
-              style={{
-                padding: 12,
-                borderRadius: 8,
-                border: '1px solid #ccc'
-              }}
-            />
-          )}
-          <button
-            type="submit"
-            style={{
-              padding: 12,
-              borderRadius: 8,
-              border: 'none',
-              background: '#2563eb',
-              color: '#fff',
-              cursor: 'pointer'
-            }}
-          >
-            Login
-          </button>
-        </form>
-      </main>
+          Go Home
+        </button>
+      </div>
     )
-  }
 
-  // Admin dashboard view
   return (
     <main style={{ padding: 40 }}>
       <h2>Admin Dashboard</h2>
 
-      {loading && <p>Loading candidate profiles...</p>}
-
-      {!loading && profiles.length === 0 && <p>No candidates yet.</p>}
-
-      {!loading && profiles.length > 0 && (
-        <table border="1" cellPadding="10" style={{ marginTop: 20 }}>
-          <thead>
+      {profiles.length === 0 ? (
+        <p>No candidates have completed assessments yet.</p>
+      ) : (
+        <table
+          border="1"
+          cellPadding="10"
+          style={{ marginTop: 20, borderCollapse: 'collapse', width: '100%' }}
+        >
+          <thead style={{ background: '#f3f4f6' }}>
             <tr>
               <th>Email</th>
               <th>Score</th>
-              <th>Level</th>
               <th>Skill Breakdown</th>
-              <th>Profile Link</th>
+              <th>Level</th>
+              <th>Profile</th>
             </tr>
           </thead>
           <tbody>
-            {profiles.map((profile) => {
+            {profiles.map(profile => {
               let level = 'Average'
               if (profile.score >= 80) level = 'Strong'
               if (profile.score >= 90) level = 'Excellent'
@@ -130,18 +107,19 @@ export default function AdminDashboard() {
               return (
                 <tr key={profile.user_id}>
                   <td>{profile.email}</td>
-                  <td>{profile.score ?? 'N/A'}</td>
-                  <td>{level}</td>
+                  <td>{profile.score}</td>
                   <td>
                     {profile.breakdown
-                      ? <pre>{JSON.stringify(profile.breakdown, null, 2)}</pre>
+                      ? <pre style={{ maxWidth: 300, overflowX: 'auto' }}>{JSON.stringify(profile.breakdown, null, 2)}</pre>
                       : 'N/A'}
                   </td>
+                  <td>{level}</td>
                   <td>
                     <a
                       href={`/p/${profile.user_id}`}
                       target="_blank"
                       rel="noreferrer"
+                      style={{ color: '#2563eb', textDecoration: 'underline' }}
                     >
                       View Profile
                     </a>
