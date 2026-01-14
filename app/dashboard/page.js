@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
+import { questions } from '../assessment/questions'
 
 export default function CandidateDashboard() {
   const router = useRouter()
@@ -10,10 +11,15 @@ export default function CandidateDashboard() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [skills, setSkills] = useState({})
 
   useEffect(() => {
     async function loadDashboard() {
       try {
+        setLoading(true)
+        setError('')
+
+        // 1️⃣ Get authenticated user
         const { data: authData } = await supabase.auth.getUser()
         if (!authData?.user) {
           router.replace('/login')
@@ -22,13 +28,14 @@ export default function CandidateDashboard() {
 
         const userId = authData.user.id
 
-        const { data, error } = await supabase
+        // 2️⃣ Fetch profile
+        const { data, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('user_id', userId)
           .single()
 
-        if (error || !data) throw new Error('Profile not found')
+        if (profileError || !data) throw new Error('Profile not found')
 
         if (data.role !== 'candidate') {
           router.replace('/company/dashboard')
@@ -36,7 +43,48 @@ export default function CandidateDashboard() {
         }
 
         setProfile(data)
+
+        // 3️⃣ Fetch or compute skills breakdown
+        let skillPercentages = data.skills || {}
+
+        if (!skillPercentages || Object.keys(skillPercentages).length === 0) {
+          const { data: submissions, error: subError } = await supabase
+            .from('submissions')
+            .select('question_id, is_correct')
+            .eq('user_id', userId)
+
+          if (!subError && submissions?.length) {
+            const skillStats = {}
+
+            submissions.forEach(sub => {
+              const q = questions.find(
+                qItem => String(qItem.id) === String(sub.question_id)
+              )
+              if (!q) return
+
+              const skill = q.skill || 'Unknown'
+              if (!skillStats[skill]) skillStats[skill] = { total: 0, correct: 0 }
+
+              skillStats[skill].total += 1
+              if (sub.is_correct) skillStats[skill].correct += 1
+            })
+
+            skillPercentages = {}
+            Object.entries(skillStats).forEach(([skill, stat]) => {
+              skillPercentages[skill] = Math.round((stat.correct / stat.total) * 100)
+            })
+
+            // ✅ Update profile table with computed skills
+            await supabase
+              .from('profiles')
+              .update({ skills: skillPercentages })
+              .eq('user_id', userId)
+          }
+        }
+
+        setSkills(skillPercentages)
       } catch (err) {
+        console.error('Candidate Dashboard Error:', err)
         setError(err.message)
       } finally {
         setLoading(false)
@@ -47,15 +95,13 @@ export default function CandidateDashboard() {
   }, [router])
 
   if (loading) return <p style={{ padding: 40 }}>Loading…</p>
-
-  if (error) {
+  if (error)
     return (
       <div style={{ padding: 40 }}>
         <p style={{ color: 'red' }}>{error}</p>
         <button onClick={() => router.replace('/login')}>Login</button>
       </div>
     )
-  }
 
   return (
     <main style={{ minHeight: '100vh', background: '#f8fafc', padding: 40 }}>
@@ -69,9 +115,17 @@ export default function CandidateDashboard() {
             <div style={score}>{profile.score}%</div>
 
             <h3>Skill Breakdown</h3>
-            <pre style={pre}>
-              {JSON.stringify(profile.breakdown, null, 2)}
-            </pre>
+            {Object.keys(skills).length > 0 ? (
+              <ul style={skillList}>
+                {Object.entries(skills).map(([skill, percent]) => (
+                  <li key={skill}>
+                    <strong>{skill}</strong>: {percent}%
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No skill breakdown available</p>
+            )}
 
             <div style={{ marginTop: 20 }}>
               <button
@@ -82,19 +136,14 @@ export default function CandidateDashboard() {
               </button>
               <button
                 style={{ ...secondaryBtn, marginLeft: 10 }}
-                onClick={() =>
-                  window.open(`/p/${profile.user_id}`, '_blank')
-                }
+                onClick={() => window.open(`/p/${profile.user_id}`, '_blank')}
               >
                 Share Profile
               </button>
             </div>
           </div>
         ) : (
-          <button
-            style={primaryBtn}
-            onClick={() => router.push('/assessment/1')}
-          >
+          <button style={primaryBtn} onClick={() => router.push('/assessment/1')}>
             Take Assessment
           </button>
         )}
@@ -109,6 +158,8 @@ export default function CandidateDashboard() {
     </main>
   )
 }
+
+/* ===== STYLES ===== */
 
 const container = { maxWidth: 900, margin: '0 auto' }
 
@@ -127,7 +178,7 @@ const score = {
   margin: '20px 0'
 }
 
-const pre = {
+const skillList = {
   background: '#020617',
   color: '#e5e7eb',
   padding: 15,
