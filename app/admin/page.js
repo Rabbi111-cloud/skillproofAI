@@ -15,28 +15,34 @@ export default function AdminDashboard() {
   useEffect(() => {
     async function loadAdmin() {
       try {
+        // 1️⃣ Get the logged-in user
         const { data: authData, error: authError } = await supabase.auth.getUser()
-        if (authError) throw authError
+        if (authError) throw new Error('Supabase auth error: ' + authError.message)
 
         const user = authData?.user
         if (!user) {
-          router.replace('/')
+          setError('No user is currently logged in.')
+          console.error('No user is logged in:', authData)
           return
         }
 
+        // 2️⃣ Check admin email
         if (user.email?.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
+          setError('Access denied: Not an admin.')
+          console.error('Non-admin attempted access:', user.email)
           router.replace('/dashboard')
           return
         }
 
-        // Fetch profiles safely
+        // 3️⃣ Fetch all profiles
         const { data, error: profilesError } = await supabase
           .from('profiles')
           .select('user_id, email, score, breakdown')
           .order('updated_at', { ascending: false })
 
-        if (profilesError) throw profilesError
+        if (profilesError) throw new Error('Profiles fetch error: ' + profilesError.message)
 
+        // 4️⃣ Defensive mapping
         const safeProfiles = (data || []).map(p => ({
           user_id: p?.user_id ?? null,
           email: p?.email ?? 'Unknown',
@@ -46,8 +52,8 @@ export default function AdminDashboard() {
 
         setProfiles(safeProfiles)
       } catch (err) {
-        console.error(err)
-        setError(err.message || 'Unknown error')
+        console.error('AdminDashboard error:', err)
+        setError(err.message || 'Unknown client-side error')
       } finally {
         setLoading(false)
       }
@@ -57,7 +63,16 @@ export default function AdminDashboard() {
   }, [router])
 
   if (loading) return <p style={{ padding: 40 }}>Loading admin dashboard…</p>
-  if (error) return <p style={{ padding: 40, color: 'red' }}>{error}</p>
+
+  if (error) {
+    return (
+      <div style={{ padding: 40, color: 'red' }}>
+        <h2>Error loading Admin Dashboard</h2>
+        <p>{error}</p>
+        <p>Check the console for details.</p>
+      </div>
+    )
+  }
 
   return (
     <main style={{ padding: 40 }}>
@@ -90,10 +105,10 @@ export default function AdminDashboard() {
                   <td>
                     {p.user_id ? (
                       <a href={`/p/${p.user_id}`} target="_blank" rel="noreferrer">
-                        View
+                        View Profile
                       </a>
                     ) : (
-                      'Unavailable'
+                      'No profile'
                     )}
                   </td>
                 </tr>
