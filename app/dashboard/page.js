@@ -14,7 +14,6 @@ export default function CandidateDashboard() {
   useEffect(() => {
     async function loadDashboard() {
       try {
-        // 1️⃣ Auth user
         const { data: authData } = await supabase.auth.getUser()
         if (!authData?.user) {
           router.replace('/login')
@@ -23,16 +22,13 @@ export default function CandidateDashboard() {
 
         const userId = authData.user.id
 
-        // 2️⃣ Profile
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('user_id', userId)
           .single()
 
-        if (error || !data) {
-          throw new Error('Profile not found')
-        }
+        if (error || !data) throw new Error('Profile not found')
 
         if (data.role !== 'candidate') {
           router.replace('/company/dashboard')
@@ -50,11 +46,11 @@ export default function CandidateDashboard() {
     loadDashboard()
   }, [router])
 
-  if (loading) return <p style={{ padding: 30 }}>Loading…</p>
+  if (loading) return <p style={{ padding: 40 }}>Loading…</p>
 
   if (error) {
     return (
-      <div style={{ padding: 30 }}>
+      <div style={{ padding: 40 }}>
         <p style={{ color: 'red' }}>{error}</p>
         <button onClick={() => router.replace('/login')}>Login</button>
       </div>
@@ -62,41 +58,98 @@ export default function CandidateDashboard() {
   }
 
   return (
-    <main style={{ padding: 30 }}>
-      <h1>Candidate Dashboard</h1>
-      <p>Welcome, {profile.email}</p>
+    <main style={{ minHeight: '100vh', background: '#f8fafc', padding: 40 }}>
+      <div style={container}>
+        <h1>Candidate Dashboard</h1>
+        <p style={{ color: '#64748b' }}>Welcome, {profile.email}</p>
 
-      {profile.assessment_completed ? (
-        <>
-          <h2>Assessment Completed ✅</h2>
-          <p><strong>Score:</strong> {profile.score}%</p>
+        {profile.assessment_completed ? (
+          <div style={card}>
+            <h2>Assessment Completed ✅</h2>
+            <div style={score}>{profile.score}%</div>
 
-          <h3>Skill Breakdown</h3>
-          <pre>{JSON.stringify(profile.breakdown, null, 2)}</pre>
+            <h3>Skill Breakdown</h3>
+            <pre style={pre}>
+              {JSON.stringify(profile.breakdown, null, 2)}
+            </pre>
 
-          <button onClick={() => router.push(`/p/${profile.user_id}`)}>
-            View Profile
-          </button>
-
+            <div style={{ marginTop: 20 }}>
+              <button
+                style={primaryBtn}
+                onClick={() => router.push(`/p/${profile.user_id}`)}
+              >
+                View Profile
+              </button>
+              <button
+                style={{ ...secondaryBtn, marginLeft: 10 }}
+                onClick={() =>
+                  window.open(`/p/${profile.user_id}`, '_blank')
+                }
+              >
+                Share Profile
+              </button>
+            </div>
+          </div>
+        ) : (
           <button
-            style={{ marginLeft: 10 }}
-            onClick={() => window.open(`/p/${profile.user_id}`, '_blank')}
+            style={primaryBtn}
+            onClick={() => router.push('/assessment/1')}
           >
-            Share Profile
+            Take Assessment
           </button>
-        </>
-      ) : (
-        <button onClick={() => router.push('/assessment/1')}>
-          Take Assessment
-        </button>
-      )}
+        )}
 
-      <button
-        style={{ marginTop: 20 }}
-        onClick={() => router.push('/logout')}
-      >
-        Logout
-      </button>
+        <button
+          style={{ ...dangerBtn, marginTop: 30 }}
+          onClick={() => router.push('/logout')}
+        >
+          Logout
+        </button>
+      </div>
     </main>
   )
+}
+
+const container = { maxWidth: 900, margin: '0 auto' }
+
+const card = {
+  background: '#fff',
+  padding: 30,
+  borderRadius: 16,
+  boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+  marginTop: 30
+}
+
+const score = {
+  fontSize: 42,
+  fontWeight: 'bold',
+  color: '#2563eb',
+  margin: '20px 0'
+}
+
+const pre = {
+  background: '#020617',
+  color: '#e5e7eb',
+  padding: 15,
+  borderRadius: 8
+}
+
+const primaryBtn = {
+  padding: '10px 18px',
+  background: '#2563eb',
+  color: '#fff',
+  border: 'none',
+  borderRadius: 8,
+  cursor: 'pointer'
+}
+
+const secondaryBtn = {
+  ...primaryBtn,
+  background: '#e5e7eb',
+  color: '#111827'
+}
+
+const dangerBtn = {
+  ...primaryBtn,
+  background: '#dc2626'
 }
