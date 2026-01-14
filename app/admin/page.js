@@ -1,50 +1,54 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabaseClient'
+import { supabase } from '../lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 
-// 🔐 ADMIN EMAIL (CHANGE THIS)
 const ADMIN_EMAIL = 'diggingdeep0007@gmail.com'
 
 export default function AdminDashboard() {
-  const [profiles, setProfiles] = useState([])
+  const [results, setResults] = useState([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
-    async function loadProfiles() {
-      // 1️⃣ Ensure user is logged in
-      const { data: authData } = await supabase.auth.getUser()
+    async function loadAdminData() {
+      const { data: { user } } = await supabase.auth.getUser()
 
-      if (!authData?.user) {
+      if (!user) {
         router.push('/')
         return
       }
 
-      // 2️⃣ BLOCK NON-ADMIN USERS
-      if (authData.user.email !== ADMIN_EMAIL) {
+      if (user.email !== ADMIN_EMAIL) {
         router.push('/dashboard')
         return
       }
 
-      // 3️⃣ Fetch all candidate profiles
+      // Fetch assessments + profile info
       const { data, error } = await supabase
         .from('profiles')
-        .select('user_id, email, score, updated_at')
+        .select(`
+          user_id,
+          score,
+          created_at,
+          profiles (
+            email
+          )
+        `)
         .order('score', { ascending: false })
 
-      if (!error) {
-        setProfiles(data)
-      } else {
+      if (error) {
         console.error(error)
+      } else {
+        setResults(data || [])
       }
 
       setLoading(false)
     }
 
-    loadProfiles()
-  }, [])
+    loadAdminData()
+  }, [router])
 
   if (loading) {
     return <p style={{ padding: 30 }}>Loading admin dashboard...</p>
@@ -54,7 +58,7 @@ export default function AdminDashboard() {
     <main style={{ padding: 40 }}>
       <h2>Admin / Company Dashboard</h2>
 
-      {profiles.length === 0 ? (
+      {results.length === 0 ? (
         <p>No candidates yet.</p>
       ) : (
         <table border="1" cellPadding="10" style={{ marginTop: 20 }}>
@@ -67,19 +71,19 @@ export default function AdminDashboard() {
             </tr>
           </thead>
           <tbody>
-            {profiles.map(profile => {
+            {results.map(item => {
               let level = 'Average'
-              if (profile.score >= 80) level = 'Strong'
-              if (profile.score >= 90) level = 'Excellent'
+              if (item.score >= 80) level = 'Strong'
+              if (item.score >= 90) level = 'Excellent'
 
               return (
-                <tr key={profile.user_id}>
-                  <td>{profile.email}</td>
-                  <td>{profile.score}</td>
+                <tr key={item.user_id}>
+                  <td>{item.profiles?.email || 'N/A'}</td>
+                  <td>{item.score}</td>
                   <td>{level}</td>
                   <td>
                     <a
-                      href={`/p/${profile.user_id}`}
+                      href={`/p/${item.user_id}`}
                       target="_blank"
                       rel="noreferrer"
                     >
@@ -95,4 +99,3 @@ export default function AdminDashboard() {
     </main>
   )
 }
-
