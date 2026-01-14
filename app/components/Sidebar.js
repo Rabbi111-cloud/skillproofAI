@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 export default function Sidebar({ role }) {
   const router = useRouter()
 
-  // Links for candidate vs company
   const links =
     role === 'candidate'
       ? [
@@ -25,10 +24,10 @@ export default function Sidebar({ role }) {
         minHeight: '100vh',
         background: 'var(--card)',
         padding: 20,
-        boxShadow: '2px 0 10px rgba(0,0,0,0.1)',
         display: 'flex',
         flexDirection: 'column',
-        gap: 10
+        gap: 10,
+        boxShadow: '2px 0 10px rgba(0,0,0,0.1)'
       }}
     >
       <h2 style={{ marginBottom: 20, color: 'var(--primary)' }}>
@@ -40,7 +39,7 @@ export default function Sidebar({ role }) {
           key={link.label}
           onClick={() => router.push(link.path)}
           style={{
-            padding: '10px 12px',
+            padding: '10px',
             borderRadius: 8,
             border: 'none',
             background: 'var(--primary)',
