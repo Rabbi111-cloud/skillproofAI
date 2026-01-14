@@ -2,25 +2,27 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabaseClient'
 import Sidebar from '../../components/Sidebar'
 
-export default function CandidateDashboard() {
+export default function CompanyDashboard() {
   const router = useRouter()
 
   const [profile, setProfile] = useState(null)
+  const [candidates, setCandidates] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  const [currentPage, setCurrentPage] = useState(0)
+  const candidatesPerPage = 6
+
   const [theme, setTheme] = useState('light')
 
-  // Load saved theme
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme')
     if (savedTheme) setTheme(savedTheme)
   }, [])
 
-  // Apply theme
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('theme', theme)
@@ -31,26 +33,35 @@ export default function CandidateDashboard() {
       try {
         const { data: authData } = await supabase.auth.getUser()
         if (!authData?.user) {
-          router.replace('/login')
+          router.replace('/company/login')
           return
         }
 
         const userId = authData.user.id
 
-        const { data, error } = await supabase
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('user_id', userId)
           .single()
 
-        if (error || !data) throw new Error('Profile not found')
+        if (profileError || !profileData) throw new Error('Profile not found')
 
-        if (data.role !== 'candidate') {
-          router.replace('/company/dashboard')
+        if (profileData.role !== 'company') {
+          router.replace('/dashboard')
           return
         }
 
-        setProfile(data)
+        setProfile(profileData)
+
+        const { data: candidatesData, error: candidatesError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('role', 'candidate')
+
+        if (candidatesError) throw candidatesError
+
+        setCandidates(candidatesData || [])
       } catch (err) {
         setError(err.message)
       } finally {
@@ -67,15 +78,24 @@ export default function CandidateDashboard() {
     return (
       <div style={{ padding: 40 }}>
         <p style={{ color: 'red' }}>{error}</p>
-        <button onClick={() => router.replace('/login')}>Login</button>
+        <button onClick={() => router.replace('/company/login')}>
+          Login
+        </button>
       </div>
     )
   }
 
+  const startIndex = currentPage * candidatesPerPage
+  const currentCandidates = candidates.slice(
+    startIndex,
+    startIndex + candidatesPerPage
+  )
+  const totalPages = Math.ceil(candidates.length / candidatesPerPage)
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
       {/* ✅ SIDEBAR */}
-      <Sidebar role="candidate" />
+      <Sidebar role="company" />
 
       {/* ✅ MAIN CONTENT */}
       <main style={{ flex: 1, padding: 40 }}>
@@ -99,46 +119,50 @@ export default function CandidateDashboard() {
           {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
         </button>
 
-        <div style={container}>
-          <h1>Candidate Dashboard</h1>
+        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+          <h1>Company Dashboard</h1>
           <p style={{ color: '#64748b' }}>Welcome, {profile.email}</p>
 
-          {profile.assessment_completed ? (
-            <div style={card}>
-              <h2>Assessment Completed ✅</h2>
-              <div style={score}>{profile.score}%</div>
+          <h2 style={{ marginTop: 30 }}>Candidates</h2>
 
-              <h3>Skill Breakdown</h3>
-              <pre style={pre}>
-                {JSON.stringify(profile.breakdown, null, 2)}
-              </pre>
-
-              <div style={{ marginTop: 20 }}>
+          <div style={grid}>
+            {currentCandidates.map(c => (
+              <div key={c.user_id} style={card}>
+                <strong>{c.email}</strong>
+                <p>Score: {c.score ?? 'N/A'}</p>
                 <button
                   style={primaryBtn}
-                  onClick={() => router.push(`/p/${profile.user_id}`)}
+                  onClick={() => router.push(`/p/${c.user_id}`)}
                 >
                   View Profile
                 </button>
-                <button
-                  style={{ ...secondaryBtn, marginLeft: 10 }}
-                  onClick={() => window.open(`/p/${profile.user_id}`, '_blank')}
-                >
-                  Share Profile
-                </button>
               </div>
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div style={{ marginTop: 30 }}>
+              <button
+                style={secondaryBtn}
+                disabled={currentPage === 0}
+                onClick={() => setCurrentPage(p => Math.max(p - 1, 0))}
+              >
+                Previous
+              </button>
+              <button
+                style={{ ...secondaryBtn, marginLeft: 10 }}
+                disabled={currentPage === totalPages - 1}
+                onClick={() =>
+                  setCurrentPage(p => Math.min(p + 1, totalPages - 1))
+                }
+              >
+                Next
+              </button>
             </div>
-          ) : (
-            <button
-              style={primaryBtn}
-              onClick={() => router.push('/assessment/1')}
-            >
-              Take Assessment
-            </button>
           )}
 
           <button
-            style={{ ...dangerBtn, marginTop: 30 }}
+            style={{ ...dangerBtn, marginTop: 40 }}
             onClick={() => router.push('/logout')}
           >
             Logout
@@ -150,32 +174,23 @@ export default function CandidateDashboard() {
 }
 
 /* ===== STYLES ===== */
-const container = { maxWidth: 900, margin: '0 auto' }
+const grid = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+  gap: 20
+}
 
 const card = {
   background: 'var(--card)',
-  padding: 30,
-  borderRadius: 16,
-  boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-  marginTop: 30
-}
-
-const score = {
-  fontSize: 42,
-  fontWeight: 'bold',
-  color: 'var(--primary)',
-  margin: '20px 0'
-}
-
-const pre = {
-  background: '#020617',
-  color: '#e5e7eb',
-  padding: 15,
-  borderRadius: 8
+  padding: 20,
+  borderRadius: 14,
+  boxShadow: '0 8px 25px rgba(0,0,0,0.08)',
+  textAlign: 'center'
 }
 
 const primaryBtn = {
-  padding: '10px 18px',
+  marginTop: 10,
+  padding: '8px 16px',
   background: 'var(--primary)',
   color: '#fff',
   border: 'none',
