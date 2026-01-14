@@ -12,10 +12,14 @@ export default function Home() {
   const [adminError, setAdminError] = useState('')
 
   const handleAdminSubmit = (e) => {
-    e.preventDefault()
+    e.preventDefault() // ✅ prevent default form submit
     setAdminError('')
 
-    if (adminEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+    // Trim and lowercase the email for robust checking
+    const email = adminEmail.trim().toLowerCase()
+
+    if (email === ADMIN_EMAIL.toLowerCase()) {
+      // ✅ Correct admin email -> redirect immediately
       router.push('/admin')
     } else {
       setAdminError('Invalid admin email.')
@@ -105,7 +109,13 @@ export default function Home() {
           ) : (
             <form
               onSubmit={handleAdminSubmit}
-              style={{ display: 'flex', flexDirection: 'column', gap: 15, alignItems: 'center', marginTop: 10 }}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 15,
+                alignItems: 'center',
+                marginTop: 10
+              }}
             >
               <input
                 type="email"
@@ -113,10 +123,18 @@ export default function Home() {
                 value={adminEmail}
                 onChange={(e) => setAdminEmail(e.target.value)}
                 required
-                style={{ padding: 12, borderRadius: 8, border: '1px solid #ccc', width: 250 }}
+                style={{
+                  padding: 12,
+                  borderRadius: 8,
+                  border: '1px solid #ccc',
+                  width: 250
+                }}
               />
               {adminError && <p style={{ color: 'red' }}>{adminError}</p>}
-              <button type="submit" style={{ ...primaryBtn, width: 'auto', padding: '10px 20px' }}>
+              <button
+                type="submit"
+                style={{ ...primaryBtn, width: 'auto', padding: '10px 20px' }}
+              >
                 Login as Admin
               </button>
             </form>
