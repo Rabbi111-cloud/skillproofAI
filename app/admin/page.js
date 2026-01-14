@@ -1,123 +1,163 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabaseClient'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 const ADMIN_EMAIL = 'diggingdeep0007@gmail.com'
 
-export default function AdminDashboard() {
+export default function Home() {
   const router = useRouter()
-  const [profiles, setProfiles] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [adminPrompt, setAdminPrompt] = useState(false)
+  const [adminEmail, setAdminEmail] = useState('')
+  const [adminPassword, setAdminPassword] = useState('')
+  const [adminError, setAdminError] = useState('')
 
-  useEffect(() => {
-    async function loadAdmin() {
-      try {
-        // 1️⃣ Get the current session
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-        if (sessionError) throw new Error('Supabase session error: ' + sessionError.message)
+  // Handle admin login prompt
+  function handleAdminSubmit(e) {
+    e.preventDefault()
+    setAdminError('')
 
-        const user = sessionData?.session?.user
-        if (!user) {
-          setError('No active session. Please log in.')
-          console.error('No session:', sessionData)
-          router.replace('/') // redirect to login/home
-          return
-        }
-
-        // 2️⃣ Check admin email
-        if (user.email?.toLowerCase() !== ADMIN_EMAIL.toLowerCase()) {
-          setError('Access denied: Not an admin.')
-          console.error('Non-admin attempted access:', user.email)
-          router.replace('/dashboard')
-          return
-        }
-
-        // 3️⃣ Fetch all candidate profiles
-        const { data, error: profilesError } = await supabase
-          .from('profiles')
-          .select('user_id, email, score, breakdown')
-          .order('updated_at', { ascending: false })
-
-        if (profilesError) throw new Error('Profiles fetch error: ' + profilesError.message)
-
-        // 4️⃣ Defensive mapping
-        const safeProfiles = (data || []).map(p => ({
-          user_id: p?.user_id ?? null,
-          email: p?.email ?? 'Unknown',
-          score: typeof p?.score === 'number' ? p.score : Number(p?.score) || null,
-          breakdown: p?.breakdown ?? {}
-        }))
-
-        setProfiles(safeProfiles)
-      } catch (err) {
-        console.error('AdminDashboard error:', err)
-        setError(err.message || 'Unknown client-side error')
-      } finally {
-        setLoading(false)
-      }
+    if (adminEmail.toLowerCase() === ADMIN_EMAIL.toLowerCase() && adminPassword === 'adminpassword') {
+      router.push('/admin') // Redirect to admin dashboard
+    } else {
+      setAdminError('Invalid admin credentials.')
     }
-
-    loadAdmin()
-  }, [router])
-
-  if (loading) return <p style={{ padding: 40 }}>Loading admin dashboard…</p>
-
-  if (error) {
-    return (
-      <div style={{ padding: 40, color: 'red' }}>
-        <h2>Error loading Admin Dashboard</h2>
-        <p>{error}</p>
-        <p>Check the console for details.</p>
-      </div>
-    )
   }
 
   return (
-    <main style={{ padding: 40 }}>
-      <h1>Admin Dashboard</h1>
+    <main
+      style={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #0f172a, #020617)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 900,
+          background: '#ffffff',
+          borderRadius: 16,
+          padding: 40,
+          boxShadow: '0 25px 50px rgba(0,0,0,0.25)'
+        }}
+      >
+        <h1 style={{ textAlign: 'center', fontSize: 36, marginBottom: 10 }}>
+          SKILLPROOF
+        </h1>
+        <p style={{ textAlign: 'center', color: '#64748b' }}>
+          Prove skills. Hire smarter.
+        </p>
 
-      {profiles.length === 0 ? (
-        <p>No candidates yet.</p>
-      ) : (
-        <table border="1" cellPadding="10" style={{ marginTop: 20 }}>
-          <thead>
-            <tr>
-              <th>Email</th>
-              <th>Score</th>
-              <th>Level</th>
-              <th>Profile</th>
-            </tr>
-          </thead>
-          <tbody>
-            {profiles.map(p => {
-              const score = p.score ?? 0
-              let level = 'Average'
-              if (score >= 90) level = 'Excellent'
-              else if (score >= 80) level = 'Strong'
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr 1fr',
+            gap: 30,
+            marginTop: 40
+          }}
+        >
+          {/* Candidate */}
+          <div style={cardStyle}>
+            <h2>Candidate</h2>
+            <button style={primaryBtn} onClick={() => router.push('/signup')}>
+              Signup
+            </button>
+            <button style={secondaryBtn} onClick={() => router.push('/login')}>
+              Login
+            </button>
+          </div>
 
-              return (
-                <tr key={p.user_id || p.email}>
-                  <td>{p.email}</td>
-                  <td>{p.score ?? '—'}</td>
-                  <td>{level}</td>
-                  <td>
-                    {p.user_id ? (
-                      <a href={`/p/${p.user_id}`} target="_blank" rel="noreferrer">
-                        View Profile
-                      </a>
-                    ) : (
-                      'No profile'
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      )}
+          {/* Company */}
+          <div style={cardStyle}>
+            <h2>Company</h2>
+            <button style={primaryBtn} onClick={() => router.push('/company/signup')}>
+              Signup
+            </button>
+            <button style={secondaryBtn} onClick={() => router.push('/company/login')}>
+              Login
+            </button>
+          </div>
+
+          {/* Admin */}
+          <div style={cardStyle}>
+            <h2>Admin</h2>
+            <button
+              style={primaryBtn}
+              onClick={() => setAdminPrompt(true)}
+            >
+              Admin Dashboard
+            </button>
+          </div>
+        </div>
+
+        {/* Admin login prompt */}
+        {adminPrompt && (
+          <div style={{ marginTop: 30, padding: 20, border: '1px solid #ccc', borderRadius: 12 }}>
+            <h3>Admin Login</h3>
+            {adminError && <p style={{ color: 'red' }}>{adminError}</p>}
+            <form onSubmit={handleAdminSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <input
+                type="email"
+                placeholder="Admin Email"
+                value={adminEmail}
+                onChange={(e) => setAdminEmail(e.target.value)}
+                required
+                style={{ padding: 10, borderRadius: 8, border: '1px solid #ccc' }}
+              />
+              <input
+                type="password"
+                placeholder="Admin Password"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                required
+                style={{ padding: 10, borderRadius: 8, border: '1px solid #ccc' }}
+              />
+              <button
+                type="submit"
+                style={{ padding: 10, borderRadius: 8, border: 'none', background: '#2563eb', color: '#fff', cursor: 'pointer' }}
+              >
+                Login
+              </button>
+              <button
+                type="button"
+                style={{ padding: 10, borderRadius: 8, border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer', marginTop: 5 }}
+                onClick={() => setAdminPrompt(false)}
+              >
+                Cancel
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
     </main>
   )
+}
+
+const cardStyle = {
+  border: '1px solid #e5e7eb',
+  borderRadius: 12,
+  padding: 30,
+  textAlign: 'center'
+}
+
+const primaryBtn = {
+  width: '100%',
+  padding: 12,
+  background: '#2563eb',
+  color: '#fff',
+  border: 'none',
+  borderRadius: 8,
+  fontSize: 16,
+  cursor: 'pointer',
+  marginBottom: 10
+}
+
+const secondaryBtn = {
+  ...primaryBtn,
+  background: '#e5e7eb',
+  color: '#111827'
 }
