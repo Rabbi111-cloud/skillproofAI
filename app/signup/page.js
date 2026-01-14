@@ -16,6 +16,13 @@ export default function CandidateSignup() {
     setLoading(true)
     setError('')
 
+    // ✅ Prevent admin email signup
+    if (email.toLowerCase() === 'diggingdeep0007@gmail.com') {
+      setError('This email is reserved for admin.')
+      setLoading(false)
+      return
+    }
+
     try {
       // 1️⃣ Sign up user
       const { data, error: signUpError } = await supabase.auth.signUp({
@@ -47,7 +54,10 @@ export default function CandidateSignup() {
 
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
-      <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: 15 }}>
+      <form
+        onSubmit={handleSignup}
+        style={{ display: 'flex', flexDirection: 'column', gap: 15 }}
+      >
         <input
           type="email"
           placeholder="Email"
