@@ -10,52 +10,63 @@ export default function AdminDashboard() {
   const [profiles, setProfiles] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [needLogin, setNeedLogin] = useState(false)
+
   const [adminEmail, setAdminEmail] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
-  const [needLogin, setNeedLogin] = useState(false)
 
   const router = useRouter()
 
-  useEffect(() => {
-    async function checkSession() {
-      setLoading(true)
-      setError('')
+  // 🔁 Load admin dashboard
+  async function loadAdminDashboard() {
+    setLoading(true)
+    setError('')
+    setNeedLogin(false)
 
-      try {
-        const { data: sessionData } = await supabase.auth.getSession()
-        const user = sessionData?.session?.user
+    try {
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession()
 
-        if (!user) {
-          // no session -> show admin login form
-          setNeedLogin(true)
-          return
-        }
+      if (sessionError) throw sessionError
 
-        if (user.email !== ADMIN_EMAIL) {
-          setError('Access denied. Not an admin.')
-          return
-        }
+      const user = sessionData?.session?.user
 
-        // fetch candidates with completed assessment
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('user_id, email, score, breakdown, assessment_completed')
-          .eq('role', 'candidate')
-          .eq('assessment_completed', true)
-          .order('score', { ascending: false })
-
-        if (error) throw error
-        setProfiles(data || [])
-      } catch (err) {
-        setError(err.message || 'Error loading admin dashboard')
-      } finally {
+      if (!user) {
+        setNeedLogin(true)
         setLoading(false)
+        return
       }
-    }
 
-    checkSession()
+      if (user.email !== ADMIN_EMAIL) {
+        setError('Access denied. Not an admin.')
+        setLoading(false)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select(
+          'user_id, email, score, breakdown, assessment_completed'
+        )
+        .eq('assessment_completed', true)
+        .order('score', { ascending: false })
+
+      if (error) throw error
+
+      setProfiles(data || [])
+    } catch (err) {
+      console.error(err)
+      setError(err.message || 'Error loading admin dashboard')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadAdminDashboard()
   }, [])
 
+  // 🔐 Admin Login
   async function handleAdminLogin(e) {
     e.preventDefault()
     setLoading(true)
@@ -63,58 +74,71 @@ export default function AdminDashboard() {
 
     try {
       if (adminEmail !== ADMIN_EMAIL) {
-        setError('Invalid admin email')
-        setLoading(false)
-        return
+        throw new Error('Invalid admin email')
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: adminEmail,
         password: adminPassword
       })
 
       if (error) throw error
 
-      // reload page to fetch candidates
-      window.location.reload()
+      // ✅ re-check session + load data
+      await loadAdminDashboard()
     } catch (err) {
       setError(err.message || 'Invalid admin credentials')
       setLoading(false)
     }
   }
 
-  if (loading) return <p style={{ padding: 40 }}>Loading admin dashboard...</p>
+  // ⏳ Loading
+  if (loading) {
+    return <p style={{ padding: 40 }}>Loading admin dashboard...</p>
+  }
 
+  // 🔐 Login screen
   if (needLogin) {
     return (
       <main style={{ padding: 40 }}>
         <h2>Admin Login</h2>
+
         {error && <p style={{ color: 'red' }}>{error}</p>}
-        <form onSubmit={handleAdminLogin} style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 400 }}>
+
+        <form
+          onSubmit={handleAdminLogin}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            maxWidth: 400
+          }}
+        >
           <input
             type="email"
             placeholder="Admin Email"
             value={adminEmail}
             onChange={e => setAdminEmail(e.target.value)}
             required
-            style={{ padding: 10, borderRadius: 6, border: '1px solid #ccc' }}
+            style={{ padding: 10 }}
           />
+
           <input
             type="password"
             placeholder="Password"
             value={adminPassword}
             onChange={e => setAdminPassword(e.target.value)}
             required
-            style={{ padding: 10, borderRadius: 6, border: '1px solid #ccc' }}
+            style={{ padding: 10 }}
           />
+
           <button
             type="submit"
             style={{
-              padding: 10,
-              borderRadius: 6,
-              border: 'none',
+              padding: 12,
               background: '#2563eb',
               color: '#fff',
+              border: 'none',
               cursor: 'pointer'
             }}
           >
@@ -125,16 +149,19 @@ export default function AdminDashboard() {
     )
   }
 
-  if (error)
+  // ❌ Error screen
+  if (error) {
     return (
       <div style={{ padding: 40 }}>
         <p style={{ color: 'red' }}>{error}</p>
-        <button onClick={() => router.push('/')} style={{ padding: 10, borderRadius: 6, background: '#2563eb', color: '#fff', border: 'none' }}>
+        <button onClick={() => router.push('/')}>
           Go Home
         </button>
       </div>
     )
+  }
 
+  // ✅ Admin dashboard
   return (
     <main style={{ padding: 40 }}>
       <h2>Admin Dashboard</h2>
@@ -142,7 +169,15 @@ export default function AdminDashboard() {
       {profiles.length === 0 ? (
         <p>No candidates have completed assessments yet.</p>
       ) : (
-        <table border="1" cellPadding="10" style={{ marginTop: 20, borderCollapse: 'collapse', width: '100%' }}>
+        <table
+          border="1"
+          cellPadding="10"
+          style={{
+            marginTop: 20,
+            borderCollapse: 'collapse',
+            width: '100%'
+          }}
+        >
           <thead style={{ background: '#f3f4f6' }}>
             <tr>
               <th>Email</th>
@@ -152,6 +187,7 @@ export default function AdminDashboard() {
               <th>Profile</th>
             </tr>
           </thead>
+
           <tbody>
             {profiles.map(profile => {
               let level = 'Average'
@@ -163,13 +199,21 @@ export default function AdminDashboard() {
                   <td>{profile.email}</td>
                   <td>{profile.score}</td>
                   <td>
-                    {profile.breakdown
-                      ? <pre style={{ maxWidth: 300, overflowX: 'auto' }}>{JSON.stringify(profile.breakdown, null, 2)}</pre>
-                      : 'N/A'}
+                    {profile.breakdown ? (
+                      <pre style={{ maxWidth: 300, overflowX: 'auto' }}>
+                        {JSON.stringify(profile.breakdown, null, 2)}
+                      </pre>
+                    ) : (
+                      'N/A'
+                    )}
                   </td>
                   <td>{level}</td>
                   <td>
-                    <a href={`/p/${profile.user_id}`} target="_blank" rel="noreferrer">
+                    <a
+                      href={`/p/${profile.user_id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       View Profile
                     </a>
                   </td>
