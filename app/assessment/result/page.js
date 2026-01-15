@@ -12,7 +12,7 @@ export default function ResultPage() {
   useEffect(() => {
     async function submitAssessment() {
       try {
-        // 1️⃣ Load answers
+        // 1️⃣ Load answers from localStorage
         const storedAnswers =
           JSON.parse(localStorage.getItem('answers')) || {}
 
@@ -28,7 +28,10 @@ export default function ResultPage() {
           const expected = (q.correct || '').trim().toLowerCase()
           const given = (storedAnswers[q.id] || '').trim().toLowerCase()
 
-          const isCorrect = expected && given === expected
+          // ✅ Similar answer matching (not exact)
+          const isCorrect =
+            expected && given.includes(expected)
+
           if (isCorrect) correctCount++
 
           if (!skillStats[q.skill]) {
@@ -43,7 +46,7 @@ export default function ResultPage() {
           (correctCount / questions.length) * 100
         )
 
-        // 3️⃣ Build breakdown (%)
+        // 3️⃣ Build skill breakdown (%)
         const breakdown = {}
         Object.entries(skillStats).forEach(([skill, stat]) => {
           breakdown[skill] = Math.round(
@@ -61,12 +64,12 @@ export default function ResultPage() {
 
         const userId = authData.user.id
 
-        // 5️⃣ ✅ SAVE TO *CORRECT* COLUMN
+        // 5️⃣ Save to Supabase
         const { error: updateError } = await supabase
           .from('profiles')
           .update({
             score,
-            breakdown, // ✅ THIS WAS THE MISSING LINK
+            breakdown, // skill breakdown column
             assessment_completed: true,
             completed_at: new Date().toISOString()
           })
@@ -87,14 +90,29 @@ export default function ResultPage() {
     submitAssessment()
   }, [router])
 
+  // 🧨 Error UI
   if (error) {
     return (
       <div style={{ padding: 30 }}>
         <h2>Assessment Submission Failed</h2>
         <p style={{ color: 'red' }}>{error}</p>
+        <button
+          onClick={() => router.replace('/dashboard')}
+          style={{
+            padding: 10,
+            borderRadius: 6,
+            border: 'none',
+            background: '#2563eb',
+            color: '#fff',
+            cursor: 'pointer'
+          }}
+        >
+          Go to Dashboard
+        </button>
       </div>
     )
   }
 
+  // ⏳ Loading state
   return <p style={{ padding: 30 }}>Submitting result…</p>
 }
