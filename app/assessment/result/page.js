@@ -25,17 +25,10 @@ export default function ResultPage() {
         const skillStats = {}
 
         questions.forEach(q => {
-          const expected = (q.correct || '')
-            .trim()
-            .toLowerCase()
+          const expected = (q.correct || '').trim().toLowerCase()
+          const given = (storedAnswers[q.id] || '').trim().toLowerCase()
 
-          const given = (storedAnswers[q.id] || '')
-            .trim()
-            .toLowerCase()
-
-          const isCorrect =
-            expected.length > 0 && given === expected
-
+          const isCorrect = expected && given === expected
           if (isCorrect) correctCount++
 
           if (!skillStats[q.skill]) {
@@ -50,13 +43,11 @@ export default function ResultPage() {
           (correctCount / questions.length) * 100
         )
 
-        // 3️⃣ Build skill breakdown (%)
-        const skillBreakdown = {}
-        Object.keys(skillStats).forEach(skill => {
-          skillBreakdown[skill] = Math.round(
-            (skillStats[skill].correct /
-              skillStats[skill].total) *
-              100
+        // 3️⃣ Build breakdown (%)
+        const breakdown = {}
+        Object.entries(skillStats).forEach(([skill, stat]) => {
+          breakdown[skill] = Math.round(
+            (stat.correct / stat.total) * 100
           )
         })
 
@@ -70,20 +61,18 @@ export default function ResultPage() {
 
         const userId = authData.user.id
 
-        // 5️⃣ Save result to profile
+        // 5️⃣ ✅ SAVE TO *CORRECT* COLUMN
         const { error: updateError } = await supabase
           .from('profiles')
           .update({
             score,
-            skill_breakdown: skillBreakdown,
+            breakdown, // ✅ THIS WAS THE MISSING LINK
             assessment_completed: true,
             completed_at: new Date().toISOString()
           })
           .eq('user_id', userId)
 
-        if (updateError) {
-          throw updateError
-        }
+        if (updateError) throw updateError
 
         // 6️⃣ Cleanup + redirect
         localStorage.removeItem('answers')
@@ -98,19 +87,14 @@ export default function ResultPage() {
     submitAssessment()
   }, [router])
 
-  // 🧨 Error UI
   if (error) {
     return (
       <div style={{ padding: 30 }}>
         <h2>Assessment Submission Failed</h2>
         <p style={{ color: 'red' }}>{error}</p>
-        <button onClick={() => router.replace('/dashboard')}>
-          Go to Dashboard
-        </button>
       </div>
     )
   }
 
-  // ⏳ Loading state
   return <p style={{ padding: 30 }}>Submitting result…</p>
 }
