@@ -9,10 +9,8 @@ export default function AdminDashboard() {
   const [emailInput, setEmailInput] = useState('')
   const [isAllowed, setIsAllowed] = useState(false)
   const [activeTab, setActiveTab] = useState('candidates')
-
   const [profiles, setProfiles] = useState([])
   const [companies, setCompanies] = useState([])
-
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -46,7 +44,7 @@ export default function AdminDashboard() {
       // 🔹 Candidates
       const { data: candidateData, error: candErr } = await supabase
         .from('profiles')
-        .select('user_id, email, score, breakdown, assessment_completed')
+        .select('user_id, full_name, email, score, breakdown, assessment_completed')
         .eq('role', 'candidate')
         .eq('assessment_completed', true)
         .order('score', { ascending: false })
@@ -56,7 +54,7 @@ export default function AdminDashboard() {
       // 🔹 Companies
       const { data: companyData, error: compErr } = await supabase
         .from('profiles')
-        .select('user_id, email, company_name, created_at') // FETCH company_name
+        .select('user_id, company_name, email, created_at') // FETCH company_name
         .eq('role', 'company')
         .order('created_at', { ascending: false })
 
@@ -69,7 +67,7 @@ export default function AdminDashboard() {
       setError(err.message || 'Failed to load admin dashboard data')
     } finally {
       setLoading(false)
-    }
+      }
   }
 
   /* ================= LOGIN SCREEN ================= */
@@ -158,6 +156,7 @@ export default function AdminDashboard() {
             <table border="1" cellPadding="10" style={{ width: '100%' }}>
               <thead>
                 <tr>
+                  <th>Full Name</th> {/* ✅ Show full name */}
                   <th>Email</th>
                   <th>Score</th>
                   <th>Skill Breakdown</th>
@@ -167,6 +166,7 @@ export default function AdminDashboard() {
               <tbody>
                 {profiles.map(p => (
                   <tr key={p.user_id}>
+                    <td>{p.full_name || '—'}</td> {/* Display candidate name */}
                     <td>{p.email}</td>
                     <td>{p.score ?? 'N/A'}</td>
                     <td>
@@ -196,7 +196,7 @@ export default function AdminDashboard() {
             <table border="1" cellPadding="10" style={{ width: '100%' }}>
               <thead>
                 <tr>
-                  <th>Company Name</th> {/* NEW */}
+                  <th>Company Name</th>
                   <th>Email</th>
                   <th>Signup Date</th>
                 </tr>
@@ -204,7 +204,7 @@ export default function AdminDashboard() {
               <tbody>
                 {companies.map(c => (
                   <tr key={c.user_id}>
-                    <td>{c.company_name || '—'}</td> {/* SHOW NAME */}
+                    <td>{c.company_name || '—'}</td> {/* Display company name */}
                     <td>{c.email}</td>
                     <td>
                       {c.created_at
