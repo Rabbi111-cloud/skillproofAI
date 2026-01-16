@@ -6,6 +6,7 @@ import { supabase } from '../../../lib/supabaseClient'
 
 export default function CompanySignup() {
   const router = useRouter()
+  const [companyName, setCompanyName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -13,7 +14,14 @@ export default function CompanySignup() {
   const handleSignup = async () => {
     setLoading(true)
     try {
-      // Check if email already exists in profiles
+      // 1️⃣ Validate company name
+      if (!companyName.trim()) {
+        alert('Please enter your company name.')
+        setLoading(false)
+        return
+      }
+
+      // 2️⃣ Check if email already exists in profiles
       const { data: existingProfile } = await supabase
         .from('profiles')
         .select('role')
@@ -26,19 +34,21 @@ export default function CompanySignup() {
         } else {
           alert('This email is registered as a candidate. Use candidate login.')
         }
+        setLoading(false)
         return
       }
 
-      // Signup in Supabase Auth
+      // 3️⃣ Signup in Supabase Auth
       const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) throw error
       if (!data.user) throw new Error('Signup failed')
 
-      // Insert profile
+      // 4️⃣ Insert profile with company name
       await supabase.from('profiles').insert({
         user_id: data.user.id,
         email,
-        role: 'company'
+        role: 'company',
+        company_name: companyName
       })
 
       alert('Signup successful! Please login.')
@@ -53,6 +63,15 @@ export default function CompanySignup() {
   return (
     <main style={{ padding: 40, maxWidth: 400, margin: '0 auto' }}>
       <h1>Company Signup</h1>
+
+      <input
+        type="text"
+        placeholder="Company Name"
+        value={companyName}
+        onChange={e => setCompanyName(e.target.value)}
+        style={{ width: '100%', padding: 10, marginBottom: 10 }}
+      />
+
       <input
         type="email"
         placeholder="Email"
@@ -60,6 +79,7 @@ export default function CompanySignup() {
         onChange={e => setEmail(e.target.value)}
         style={{ width: '100%', padding: 10, marginBottom: 10 }}
       />
+
       <input
         type="password"
         placeholder="Password"
@@ -67,6 +87,7 @@ export default function CompanySignup() {
         onChange={e => setPassword(e.target.value)}
         style={{ width: '100%', padding: 10, marginBottom: 20 }}
       />
+
       <button
         onClick={handleSignup}
         disabled={loading}
