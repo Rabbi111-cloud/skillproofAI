@@ -13,9 +13,10 @@ export default function ProfilePage() {
   useEffect(() => {
     async function loadProfile() {
       try {
+        // Fetch full_name in addition to existing fields
         const { data, error } = await supabase
           .from('profiles')
-          .select('email, score, breakdown')
+          .select('full_name, email, score, breakdown')
           .eq('user_id', id)
           .single()
 
@@ -37,11 +38,12 @@ export default function ProfilePage() {
   if (loading) return <p style={{ padding: 30 }}>Loading profile…</p>
   if (error) return <p style={{ padding: 30, color: 'red' }}>{error}</p>
 
-  const { email, score, breakdown } = profile
+  const { full_name, email, score, breakdown } = profile
 
   return (
     <div style={{ padding: 30 }}>
       <h2>Candidate Profile</h2>
+      <p><strong>Full Name:</strong> {full_name || 'N/A'}</p>
       <p><strong>Email:</strong> {email}</p>
       <p><strong>Score:</strong> {score ?? 'N/A'}%</p>
 
