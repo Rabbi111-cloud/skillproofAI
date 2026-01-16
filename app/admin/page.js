@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 
 const ADMIN_EMAIL = 'diggingdeep0007@gmail.com'
@@ -8,14 +8,20 @@ const ADMIN_EMAIL = 'diggingdeep0007@gmail.com'
 export default function AdminDashboard() {
   const [emailInput, setEmailInput] = useState('')
   const [isAllowed, setIsAllowed] = useState(false)
+  const [activeTab, setActiveTab] = useState('candidates')
+
   const [profiles, setProfiles] = useState([])
+  const [companies, setCompanies] = useState([])
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  /* ================= ADMIN ACCESS ================= */
   async function handleAdminAccess(e) {
     e.preventDefault()
     setError('')
     setProfiles([])
+    setCompanies([])
 
     if (!emailInput) {
       setError('Please enter admin email.')
@@ -28,39 +34,51 @@ export default function AdminDashboard() {
     }
 
     setIsAllowed(true)
+    fetchData()
+  }
+
+  /* ================= FETCH DATA ================= */
+  async function fetchData() {
     setLoading(true)
+    setError('')
 
     try {
-      const { data, error } = await supabase
+      // 🔹 Candidates
+      const { data: candidateData, error: candErr } = await supabase
         .from('profiles')
-        .select(
-          'user_id, email, score, breakdown, assessment_completed'
-        )
+        .select('user_id, email, score, breakdown, assessment_completed')
         .eq('role', 'candidate')
+        .eq('assessment_completed', true)
         .order('score', { ascending: false })
 
-      if (error) throw error
+      if (candErr) throw candErr
 
-      setProfiles(data || [])
+      // 🔹 Companies
+      const { data: companyData, error: compErr } = await supabase
+        .from('profiles')
+        .select('user_id, email, created_at')
+        .eq('role', 'company')
+        .order('created_at', { ascending: false })
+
+      if (compErr) throw compErr
+
+      setProfiles(candidateData || [])
+      setCompanies(companyData || [])
     } catch (err) {
       console.error('ADMIN FETCH ERROR:', err)
-      setError(
-        err.message || 'Failed to load admin dashboard data'
-      )
+      setError(err.message || 'Failed to load admin dashboard data')
     } finally {
       setLoading(false)
     }
   }
 
-  /* ===================== LOGIN SCREEN ===================== */
+  /* ================= LOGIN SCREEN ================= */
   if (!isAllowed) {
     return (
       <main style={{ padding: 40, maxWidth: 500, margin: '0 auto' }}>
         <h2>Admin Access</h2>
 
-        {error && (
-          <p style={{ color: 'red', marginBottom: 10 }}>{error}</p>
-        )}
+        {error && <p style={{ color: 'red' }}>{error}</p>}
 
         <form
           onSubmit={handleAdminAccess}
@@ -72,11 +90,7 @@ export default function AdminDashboard() {
             value={emailInput}
             onChange={e => setEmailInput(e.target.value)}
             required
-            style={{
-              padding: 12,
-              borderRadius: 8,
-              border: '1px solid #ccc'
-            }}
+            style={{ padding: 12, borderRadius: 8, border: '1px solid #ccc' }}
           />
 
           <button
@@ -97,73 +111,110 @@ export default function AdminDashboard() {
     )
   }
 
-  /* ===================== DASHBOARD ===================== */
+  /* ================= DASHBOARD ================= */
   return (
     <main style={{ padding: 40 }}>
       <h2>Admin Dashboard</h2>
 
-      {loading && <p>Loading candidates…</p>}
-
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-
-      {!loading && profiles.length === 0 && (
-        <p>No candidates found.</p>
-      )}
-
-      {!loading && profiles.length > 0 && (
-        <table
-          border="1"
-          cellPadding="10"
+      {/* Tabs */}
+      <div style={{ marginBottom: 20 }}>
+        <button
+          onClick={() => setActiveTab('candidates')}
           style={{
-            marginTop: 20,
-            borderCollapse: 'collapse',
-            width: '100%'
+            marginRight: 10,
+            padding: 8,
+            background: activeTab === 'candidates' ? '#2563eb' : '#e5e7eb',
+            color: activeTab === 'candidates' ? '#fff' : '#000',
+            border: 'none',
+            borderRadius: 6
           }}
         >
-          <thead style={{ background: '#f3f4f6' }}>
-            <tr>
-              <th>Email</th>
-              <th>Score</th>
-              <th>Skill Breakdown</th>
-              <th>Profile</th>
-            </tr>
-          </thead>
-          <tbody>
-            {profiles.map(profile => (
-              <tr key={profile.user_id}>
-                <td>{profile.email}</td>
-                <td>{profile.score ?? 'N/A'}</td>
-                <td>
-                  {profile.breakdown ? (
-                    <pre
-                      style={{
-                        maxWidth: 350,
-                        overflowX: 'auto'
-                      }}
-                    >
-                      {JSON.stringify(
-                        profile.breakdown,
-                        null,
-                        2
-                      )}
-                    </pre>
-                  ) : (
-                    'No breakdown'
-                  )}
-                </td>
-                <td>
-                  <a
-                    href={`/p/${profile.user_id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    View
-                  </a>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          Candidates
+        </button>
+
+        <button
+          onClick={() => setActiveTab('companies')}
+          style={{
+            padding: 8,
+            background: activeTab === 'companies' ? '#2563eb' : '#e5e7eb',
+            color: activeTab === 'companies' ? '#fff' : '#000',
+            border: 'none',
+            borderRadius: 6
+          }}
+        >
+          Companies
+        </button>
+      </div>
+
+      {loading && <p>Loading…</p>}
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+
+      {/* ================= CANDIDATES ================= */}
+      {!loading && activeTab === 'candidates' && (
+        <>
+          {profiles.length === 0 ? (
+            <p>No completed candidates found.</p>
+          ) : (
+            <table border="1" cellPadding="10" style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Score</th>
+                  <th>Skill Breakdown</th>
+                  <th>Profile</th>
+                </tr>
+              </thead>
+              <tbody>
+                {profiles.map(p => (
+                  <tr key={p.user_id}>
+                    <td>{p.email}</td>
+                    <td>{p.score ?? 'N/A'}</td>
+                    <td>
+                      {p.breakdown
+                        ? JSON.stringify(p.breakdown)
+                        : 'No breakdown'}
+                    </td>
+                    <td>
+                      <a href={`/p/${p.user_id}`} target="_blank" rel="noreferrer">
+                        View
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
+      )}
+
+      {/* ================= COMPANIES ================= */}
+      {!loading && activeTab === 'companies' && (
+        <>
+          {companies.length === 0 ? (
+            <p>No companies have signed up yet.</p>
+          ) : (
+            <table border="1" cellPadding="10" style={{ width: '100%' }}>
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Signup Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {companies.map(c => (
+                  <tr key={c.user_id}>
+                    <td>{c.email}</td>
+                    <td>
+                      {c.created_at
+                        ? new Date(c.created_at).toLocaleDateString()
+                        : 'N/A'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </>
       )}
     </main>
   )
