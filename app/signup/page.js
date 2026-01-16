@@ -6,8 +6,8 @@ import { supabase } from '../../lib/supabaseClient'
 
 export default function CandidateSignup() {
   const router = useRouter()
-  const [fullName, setFullName] = useState('') // ✅ Added full name
   const [email, setEmail] = useState('')
+  const [fullName, setFullName] = useState('') // NEW
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -24,12 +24,6 @@ export default function CandidateSignup() {
       return
     }
 
-    if (!fullName.trim()) {
-      setError('Please enter your full name.')
-      setLoading(false)
-      return
-    }
-
     try {
       // 1️⃣ Sign up user
       const { data, error: signUpError } = await supabase.auth.signUp({
@@ -37,20 +31,21 @@ export default function CandidateSignup() {
         password
       })
       if (signUpError) throw signUpError
-      if (!data.user) throw new Error('Signup failed')
 
-      // 2️⃣ Insert profile row with full name
+      // 2️⃣ Insert profile with full name
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert([{
-          user_id: data.user.id,
-          email,
-          full_name: fullName, // ✅ Save full name
-          role: 'candidate'
-        }])
+        .insert([
+          {
+            user_id: data.user.id,
+            email,
+            full_name: fullName, // NEW
+            role: 'candidate'
+          }
+        ])
       if (profileError) throw profileError
 
-      // 3️⃣ Redirect to dashboard
+      // 3️⃣ Redirect
       router.push('/dashboard')
     } catch (err) {
       setError(err.message)
@@ -62,7 +57,6 @@ export default function CandidateSignup() {
   return (
     <main style={{ padding: 40, maxWidth: 500, margin: '0 auto' }}>
       <h1>Candidate Signup</h1>
-
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
       <form
