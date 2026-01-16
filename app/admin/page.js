@@ -56,7 +56,7 @@ export default function AdminDashboard() {
       // 🔹 Companies
       const { data: companyData, error: compErr } = await supabase
         .from('profiles')
-        .select('user_id, email, created_at')
+        .select('user_id, email, company_name, created_at') // FETCH company_name
         .eq('role', 'company')
         .order('created_at', { ascending: false })
 
@@ -196,6 +196,7 @@ export default function AdminDashboard() {
             <table border="1" cellPadding="10" style={{ width: '100%' }}>
               <thead>
                 <tr>
+                  <th>Company Name</th> {/* NEW */}
                   <th>Email</th>
                   <th>Signup Date</th>
                 </tr>
@@ -203,6 +204,7 @@ export default function AdminDashboard() {
               <tbody>
                 {companies.map(c => (
                   <tr key={c.user_id}>
+                    <td>{c.company_name || '—'}</td> {/* SHOW NAME */}
                     <td>{c.email}</td>
                     <td>
                       {c.created_at
