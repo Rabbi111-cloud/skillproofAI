@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabaseClient'
 
 export default function CandidateSignup() {
   const router = useRouter()
+  const [fullName, setFullName] = useState('') // ✅ Added full name
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -16,9 +17,15 @@ export default function CandidateSignup() {
     setLoading(true)
     setError('')
 
-    // ✅ Prevent admin email signup
+    // Prevent admin email signup
     if (email.toLowerCase() === 'diggingdeep0007@gmail.com') {
       setError('This email is reserved for admin.')
+      setLoading(false)
+      return
+    }
+
+    if (!fullName.trim()) {
+      setError('Please enter your full name.')
       setLoading(false)
       return
     }
@@ -29,14 +36,18 @@ export default function CandidateSignup() {
         email,
         password
       })
-
       if (signUpError) throw signUpError
+      if (!data.user) throw new Error('Signup failed')
 
-      // 2️⃣ Insert profile row
+      // 2️⃣ Insert profile row with full name
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert([{ user_id: data.user.id, email, role: 'candidate' }])
-
+        .insert([{
+          user_id: data.user.id,
+          email,
+          full_name: fullName, // ✅ Save full name
+          role: 'candidate'
+        }])
       if (profileError) throw profileError
 
       // 3️⃣ Redirect to dashboard
@@ -59,6 +70,15 @@ export default function CandidateSignup() {
         style={{ display: 'flex', flexDirection: 'column', gap: 15 }}
       >
         <input
+          type="text"
+          placeholder="Full Name"
+          value={fullName}
+          onChange={e => setFullName(e.target.value)}
+          required
+          style={{ padding: 12, borderRadius: 8, border: '1px solid #ccc' }}
+        />
+
+        <input
           type="email"
           placeholder="Email"
           value={email}
@@ -66,6 +86,7 @@ export default function CandidateSignup() {
           required
           style={{ padding: 12, borderRadius: 8, border: '1px solid #ccc' }}
         />
+
         <input
           type="password"
           placeholder="Password"
