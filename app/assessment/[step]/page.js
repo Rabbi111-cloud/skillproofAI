@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { questions } from '../questions'
 
-const TOTAL_TIME = 30
+const TOTAL_TIME = 60
 
 export default function StepPage({ params }) {
   const router = useRouter()
