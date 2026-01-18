@@ -33,7 +33,7 @@ export default function StepPage({ params }) {
     setAnswer(saved[question.id] || '')
   }, [index, question])
 
-  // Timer logic
+  // Timer logic (UNCHANGED)
   useEffect(() => {
     if (moved.current) return
     if (!question) return
@@ -52,7 +52,7 @@ export default function StepPage({ params }) {
     return () => clearInterval(timer)
   }, [index, question])
 
-  // Next question navigation
+  // Next question navigation (UNCHANGED)
   const nextQuestion = () => {
     if (moved.current) return
     moved.current = true
@@ -62,7 +62,7 @@ export default function StepPage({ params }) {
     localStorage.setItem('answers', JSON.stringify(stored))
 
     if (index < questions.length - 1) {
-      router.push(`/assessment/${index + 2}`) // next step (1-based)
+      router.push(`/assessment/${index + 2}`)
     } else {
       router.push('/assessment/result')
     }
@@ -77,13 +77,40 @@ export default function StepPage({ params }) {
     )
   }
 
+  // 🔥 Timer bar calculations (UI ONLY)
+  const progressPercent = (timeLeft / TOTAL_TIME) * 100
+
+  let barColor = '#22c55e' // green
+  if (timeLeft <= 20) barColor = '#ef4444' // red
+  else if (timeLeft <= 40) barColor = '#f59e0b' // yellow
+
   return (
     <div style={{ padding: 30 }}>
       <h2>
         Question {index + 1} of {questions.length}
       </h2>
 
-      <p><strong>Time left:</strong> {timeLeft}s</p>
+      {/* 🔥 Timer Bar */}
+      <div
+        style={{
+          height: 10,
+          width: '100%',
+          background: '#e5e7eb',
+          borderRadius: 6,
+          overflow: 'hidden',
+          marginBottom: 20
+        }}
+      >
+        <div
+          style={{
+            height: '100%',
+            width: `${progressPercent}%`,
+            background: barColor,
+            transition: 'width 1s linear, background 0.3s ease'
+          }}
+        />
+      </div>
+
       <p>{question.question}</p>
 
       <input
