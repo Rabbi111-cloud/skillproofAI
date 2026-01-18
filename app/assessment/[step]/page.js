@@ -13,7 +13,10 @@ export default function StepPage({ params }) {
   const [index, setIndex] = useState(Math.max(Number(step) - 1, 0))
   const [answer, setAnswer] = useState('')
   const [timeLeft, setTimeLeft] = useState(TOTAL_TIME)
+
   const moved = useRef(false)
+  const lastActiveTime = useRef(Date.now())
+  const intervalRef = useRef(null)
 
   const question = questions[index]
 
@@ -22,37 +25,67 @@ export default function StepPage({ params }) {
     setIndex(Math.max(Number(step) - 1, 0))
   }, [step])
 
-  // Reset state per question
+  // Restore state per question (ANTI-REFRESH)
   useEffect(() => {
     if (!question) return
 
     moved.current = false
-    setTimeLeft(TOTAL_TIME)
 
-    const saved = JSON.parse(localStorage.getItem('answers')) || {}
-    setAnswer(saved[question.id] || '')
+    const savedAnswers = JSON.parse(localStorage.getItem('answers')) || {}
+    setAnswer(savedAnswers[question.id] || '')
+
+    const savedTime = localStorage.getItem(`time-${question.id}`)
+    setTimeLeft(savedTime ? Number(savedTime) : TOTAL_TIME)
+
+    lastActiveTime.current = Date.now()
   }, [index, question])
 
-  // Timer logic (UNCHANGED)
+  // Timer logic (PAUSE-SAFE)
   useEffect(() => {
-    if (moved.current) return
-    if (!question) return
+    if (!question || moved.current) return
 
-    const timer = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
-          clearInterval(timer)
+          clearInterval(intervalRef.current)
           nextQuestion()
           return 0
         }
-        return prev - 1
+
+        const next = prev - 1
+        localStorage.setItem(`time-${question.id}`, next)
+        return next
       })
     }, 1000)
 
-    return () => clearInterval(timer)
+    return () => clearInterval(intervalRef.current)
   }, [index, question])
 
-  // Next question navigation (UNCHANGED)
+  // Tab visibility handling (PAUSE TIMER)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        clearInterval(intervalRef.current)
+      } else {
+        const now = Date.now()
+        const elapsed = Math.floor((now - lastActiveTime.current) / 1000)
+
+        setTimeLeft(prev => {
+          const updated = Math.max(prev - elapsed, 0)
+          localStorage.setItem(`time-${question.id}`, updated)
+          return updated
+        })
+
+        lastActiveTime.current = now
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () =>
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [question])
+
+  // Next question navigation (UNCHANGED LOGIC)
   const nextQuestion = () => {
     if (moved.current) return
     moved.current = true
@@ -60,6 +93,8 @@ export default function StepPage({ params }) {
     const stored = JSON.parse(localStorage.getItem('answers')) || {}
     stored[question.id] = answer
     localStorage.setItem('answers', JSON.stringify(stored))
+
+    localStorage.removeItem(`time-${question.id}`)
 
     if (index < questions.length - 1) {
       router.push(`/assessment/${index + 2}`)
@@ -77,12 +112,12 @@ export default function StepPage({ params }) {
     )
   }
 
-  // 🔥 Timer bar calculations (UI ONLY)
+  // Timer bar UI
   const progressPercent = (timeLeft / TOTAL_TIME) * 100
 
-  let barColor = '#22c55e' // green
-  if (timeLeft <= 20) barColor = '#ef4444' // red
-  else if (timeLeft <= 40) barColor = '#f59e0b' // yellow
+  let barColor = '#22c55e'
+  if (timeLeft <= 20) barColor = '#ef4444'
+  else if (timeLeft <= 40) barColor = '#f59e0b'
 
   return (
     <div style={{ padding: 30 }}>
@@ -90,7 +125,7 @@ export default function StepPage({ params }) {
         Question {index + 1} of {questions.length}
       </h2>
 
-      {/* 🔥 Timer Bar */}
+      {/* Timer Bar */}
       <div
         style={{
           height: 10,
